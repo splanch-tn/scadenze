@@ -1,0 +1,624 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Scadenze">
+<title>Scadenze Prodotti</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#f5f5f0;color:#1a1a1a;min-height:100vh}
+.app{max-width:480px;margin:0 auto;padding:16px;padding-bottom:40px}
+.header{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;padding-top:8px}
+.header h1{font-size:20px;font-weight:600}
+.sync-dot{width:9px;height:9px;border-radius:50%;background:#e0e0e0;display:inline-block;margin-right:5px}
+.sync-dot.ok{background:#22c55e}.sync-dot.syncing{background:#f59e0b;animation:blink 0.8s infinite}.sync-dot.error{background:#ef4444}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:0.3}}
+.sync-label{font-size:12px;color:#888}
+.tabs{display:flex;gap:0;margin-bottom:18px;background:#fff;border-radius:12px;padding:4px;border:1px solid #e8e8e0}
+.tab{flex:1;padding:8px 4px;font-size:11px;cursor:pointer;border:none;background:none;color:#888;border-radius:9px;transition:all 0.2s;white-space:nowrap}
+.tab.active{background:#1a1a1a;color:#fff;font-weight:500}
+.badge{display:inline-flex;align-items:center;justify-content:center;min-width:16px;height:16px;border-radius:8px;font-size:10px;font-weight:600;margin-left:2px;padding:0 3px}
+.tab.active .badge{background:rgba(255,255,255,0.25);color:#fff}
+.tab:not(.active) .badge-danger{background:#fee2e2;color:#b91c1c}
+.tab:not(.active) .badge-warn{background:#fef3c7;color:#92400e}
+.tab:not(.active) .badge-ok{background:#dcfce7;color:#166534}
+.section{display:none}.section.active{display:block}
+.stats{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:18px}
+.stat{background:#fff;border-radius:12px;padding:14px;text-align:center;border:1px solid #e8e8e0}
+.stat-num{font-size:26px;font-weight:600}
+.stat-label{font-size:11px;color:#888;margin-top:2px}
+.guide-wrap{background:#fff;border-radius:16px;padding:24px 18px;border:1px solid #e8e8e0;text-align:center;margin-bottom:12px}
+.steps-bar{display:flex;gap:8px;justify-content:center;margin-bottom:20px}
+.step-dot{width:9px;height:9px;border-radius:50%;background:#e0e0e0;transition:all 0.3s}
+.step-dot.done{background:#22c55e}.step-dot.active{background:#1a1a1a;transform:scale(1.3)}
+.g-question{font-size:18px;font-weight:600;margin-bottom:6px;min-height:28px}
+.g-sub{font-size:13px;color:#888;margin-bottom:20px;min-height:18px}
+.mic-circle{width:76px;height:76px;border-radius:50%;background:#f5f5f0;border:2px solid #e0e0e0;font-size:32px;cursor:pointer;display:flex;align-items:center;justify-content:center;margin:0 auto 16px;transition:all 0.2s;user-select:none}
+.mic-circle.listening{background:#fee2e2;border-color:#fca5a5;animation:pulse 1s infinite}
+.mic-circle.speaking{background:#dcfce7;border-color:#86efac}
+@keyframes pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.1)}}
+.g-status{font-size:13px;color:#888;min-height:20px;margin-bottom:12px}
+.g-result{font-size:15px;font-weight:500;background:#f5f5f0;border-radius:10px;padding:10px 14px;margin-bottom:16px;min-height:40px;text-align:left;border:1px solid #e8e8e0}
+.g-result.empty{color:#aaa;font-weight:400;font-style:italic}
+.guide-btns{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
+.guide-btns button{padding:9px 18px;border-radius:10px;border:1px solid #e0e0e0;background:#fff;color:#1a1a1a;font-size:13px;cursor:pointer;font-weight:500}
+.guide-btns button.primary{background:#1a1a1a;color:#fff;border-color:transparent}
+.summary-card{background:#fff;border-radius:16px;padding:16px;margin-bottom:14px;border:1px solid #e8e8e0}
+.summary-row{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid #f0f0e8;font-size:15px}
+.summary-row:last-child{border-bottom:none}
+.summary-row span:first-child{color:#888;font-size:13px}
+.summary-row span:last-child{font-weight:500}
+.action-btns{display:flex;gap:10px}
+.btn-secondary{flex:1;padding:12px;border-radius:12px;border:1px solid #e0e0e0;background:#fff;color:#1a1a1a;font-size:14px;font-weight:500;cursor:pointer}
+.btn-primary{flex:2;padding:12px;border-radius:12px;border:none;background:#1a1a1a;color:#fff;font-size:14px;font-weight:600;cursor:pointer}
+.product-card{background:#fff;border-radius:14px;padding:14px 16px;margin-bottom:10px;display:flex;align-items:center;justify-content:space-between;border:1px solid #e8e8e0;border-left:4px solid #e0e0e0}
+.product-card.expired{border-left-color:#ef4444}.product-card.warning{border-left-color:#f59e0b}.product-card.ok{border-left-color:#22c55e}
+.prod-name{font-size:15px;font-weight:500}
+.prod-meta{font-size:12px;color:#888;margin-top:3px}
+.prod-date{font-size:12px;font-weight:600;text-align:right}
+.prod-date.expired{color:#b91c1c}.prod-date.warning{color:#92400e}.prod-date.ok{color:#166534}
+.del-btn{background:none;border:none;color:#ccc;cursor:pointer;font-size:20px;padding:4px 4px 4px 10px;line-height:1}
+.empty{text-align:center;padding:40px 20px;color:#aaa;font-size:14px}
+.empty-icon{font-size:40px;margin-bottom:10px}
+.search-wrap{margin-bottom:12px}
+.search-wrap input{width:100%;padding:10px 14px;border:1px solid #e8e8e0;border-radius:12px;font-size:14px;background:#fff;outline:none}
+/* CATEGORIE */
+.cat-section-title{font-size:13px;color:#888;font-weight:500;margin-bottom:10px;margin-top:4px}
+.cat-grid{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:20px}
+.cat-chip{display:flex;align-items:center;gap:5px;background:#fff;border:1px solid #e8e8e0;border-radius:20px;padding:6px 12px;font-size:13px;font-weight:500}
+.cat-chip .btn-rename{padding:5px 10px;border-radius:8px;border:1.5px solid #aaa;background:#fff;color:#333;font-size:13px;font-weight:600;cursor:pointer;-webkit-appearance:none;display:inline-block;line-height:1.2}
+.btn-rename:active{background:#e0e0e0}
+.cat-chip .btn-del{background:none;border:none;color:#bbb;cursor:pointer;font-size:18px;line-height:1;padding:0 2px}
+.cat-chip .btn-del:active{color:#ef4444}
+.add-cat-row{display:flex;gap:8px;margin-bottom:8px}
+.add-cat-row input{flex:1;padding:10px 14px;border:1px solid #e8e8e0;border-radius:12px;font-size:14px;background:#fff;outline:none}
+.add-cat-row button{padding:10px 16px;border-radius:12px;border:none;background:#1a1a1a;color:#fff;font-size:14px;font-weight:600;cursor:pointer}
+.cat-voice-row{display:flex;align-items:center;gap:8px;margin-bottom:16px}
+.cat-voice-row .mic-small{padding:8px 12px;border-radius:10px;border:1px solid #e8e8e0;background:#fff;font-size:16px;cursor:pointer}
+.cat-voice-row .mic-small.listening{background:#fee2e2;border-color:#fca5a5}
+.info-box{background:#f0f7ff;border:1px solid #bfdbfe;border-radius:12px;padding:12px 14px;font-size:13px;color:#1e40af;line-height:1.5}
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(20px);background:#1a1a1a;color:#fff;padding:12px 22px;border-radius:24px;font-size:14px;opacity:0;transition:all 0.3s;pointer-events:none;z-index:999;max-width:320px;text-align:center}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+.loading-screen{position:fixed;inset:0;background:#f5f5f0;display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:1000;gap:16px}
+.loading-screen.hidden{display:none}
+.loading-spinner{width:36px;height:36px;border:3px solid #e0e0e0;border-top-color:#1a1a1a;border-radius:50%;animation:spin 0.8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.install-banner{background:#fff8e1;border:1px solid #ffe082;border-radius:12px;padding:12px 14px;margin-bottom:14px;font-size:13px;color:#5d4037;display:none;align-items:center;gap:10px}
+.install-banner button{margin-left:auto;background:none;border:none;font-size:18px;cursor:pointer}
+
+/* DIALOG RINOMINA */
+.dialog-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:2000;display:flex;align-items:center;justify-content:center;padding:20px}
+.dialog-overlay.hidden{display:none}
+.dialog-box{background:#fff;border-radius:20px;padding:24px 20px;width:100%;max-width:360px;box-shadow:0 20px 60px rgba(0,0,0,0.2)}
+.dialog-title{font-size:16px;font-weight:600;margin-bottom:6px}
+.dialog-sub{font-size:13px;color:#888;margin-bottom:16px}
+.dialog-input{width:100%;padding:10px 14px;border:1.5px solid #1a1a1a;border-radius:12px;font-size:15px;outline:none;margin-bottom:16px}
+.dialog-btns{display:flex;gap:10px}
+.dialog-btns .btn-cancel{flex:1;padding:11px;border-radius:12px;border:1px solid #e0e0e0;background:#fff;font-size:14px;cursor:pointer;font-weight:500}
+.dialog-btns .btn-confirm{flex:2;padding:11px;border-radius:12px;border:none;background:#1a1a1a;color:#fff;font-size:14px;font-weight:600;cursor:pointer}
+</style>
+</head>
+<body>
+
+<div class="loading-screen" id="loading-screen">
+  <div style="font-size:40px">🛒</div>
+  <div class="loading-spinner"></div>
+  <div style="font-size:14px;color:#888">Connessione in corso...</div>
+</div>
+
+<div class="app">
+  <div id="install-banner" class="install-banner">
+    📲 <span>Aggiungi alla schermata home per usarla come app!</span>
+    <button onclick="document.getElementById('install-banner').style.display='none'">×</button>
+  </div>
+  <div class="header">
+    <h1>🛒 Scadenze</h1>
+    <div style="display:flex;align-items:center">
+      <span class="sync-dot" id="sync-dot"></span>
+      <span class="sync-label" id="sync-label">connessione...</span>
+    </div>
+  </div>
+  <div class="stats">
+    <div class="stat"><div class="stat-num" id="stat-total">0</div><div class="stat-label">Totale prodotti</div></div>
+    <div class="stat"><div class="stat-num" id="stat-warn" style="color:#92400e">0</div><div class="stat-label">In scadenza</div></div>
+    <div class="stat"><div class="stat-num" id="stat-exp" style="color:#b91c1c">0</div><div class="stat-label">Scaduti</div></div>
+    <div class="stat"><div class="stat-num" id="stat-ok" style="color:#166534">0</div><div class="stat-label">OK</div></div>
+  </div>
+  <div class="tabs">
+    <button class="tab active" onclick="switchTab('add')">+ Aggiungi</button>
+    <button class="tab" onclick="switchTab('all')">Tutti <span class="badge badge-ok" id="b-all">0</span></button>
+    <button class="tab" onclick="switchTab('warn')">⚠️ <span class="badge badge-warn" id="b-warn">0</span></button>
+    <button class="tab" onclick="switchTab('exp')">❌ <span class="badge badge-danger" id="b-exp">0</span></button>
+    <button class="tab" onclick="switchTab('cat')">🏷️ Cat.</button>
+  </div>
+
+  <div class="section active" id="sec-add">
+    <div class="guide-wrap">
+      <div class="steps-bar">
+        <div class="step-dot active" id="dot-0"></div>
+        <div class="step-dot" id="dot-1"></div>
+        <div class="step-dot" id="dot-2"></div>
+        <div class="step-dot" id="dot-3"></div>
+        <div class="step-dot" id="dot-4"></div>
+      </div>
+      <div id="guided-ui">
+        <div class="g-question" id="g-question">Premi il microfono per iniziare</div>
+        <div class="g-sub" id="g-sub">Ti farò 4 domande in sequenza</div>
+        <div class="mic-circle" id="g-mic" onclick="handleMicClick()">🎤</div>
+        <div class="g-status" id="g-status"></div>
+        <div class="g-result empty" id="g-result">In attesa...</div>
+        <div class="guide-btns">
+          <button onclick="repeatStep()">↺ Ripeti</button>
+          <button onclick="skipStep()">Salta →</button>
+          <button class="primary" id="g-next-btn" onclick="confirmStep()" style="display:none">Conferma ✓</button>
+        </div>
+      </div>
+      <div id="summary-ui" style="display:none">
+        <div class="summary-card">
+          <div class="summary-row"><span>Prodotto</span><span id="s-name">—</span></div>
+          <div class="summary-row"><span>Brand</span><span id="s-brand">—</span></div>
+          <div class="summary-row"><span>Categoria</span><span id="s-cat">—</span></div>
+          <div class="summary-row"><span>Scadenza</span><span id="s-date">—</span></div>
+        </div>
+        <div class="action-btns">
+          <button class="btn-secondary" onclick="restartGuide()">↺ Ricomincia</button>
+          <button class="btn-primary" onclick="saveProduct()">Salva ✓</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section" id="sec-all">
+    <div class="search-wrap"><input type="text" id="search-all" placeholder="🔍 Cerca..." oninput="renderAll()"></div>
+    <div id="list-all"></div>
+  </div>
+  <div class="section" id="sec-warn"><div id="list-warn"></div></div>
+  <div class="section" id="sec-exp"><div id="list-exp"></div></div>
+
+  <div class="section" id="sec-cat">
+    <div class="info-box" style="margin-bottom:16px">
+      Le categorie sono condivise con tutta la famiglia. Aggiungi, rinomina o elimina direttamente da qui.
+    </div>
+    <div class="cat-section-title">Categorie disponibili</div>
+    <div class="cat-grid" id="cat-grid"></div>
+    <div class="cat-section-title">Aggiungi una categoria</div>
+    <div class="add-cat-row">
+      <input type="text" id="new-cat-input" placeholder="es. Cereali, Olio, Vino..." onkeydown="if(event.key==='Enter')addCatFromInput()">
+      <button onclick="addCatFromInput()">+</button>
+    </div>
+    <div class="cat-voice-row">
+      <button class="mic-small" id="mic-cat-page" onclick="startCatVoice()">🎤</button>
+      <span id="cat-voice-status">Oppure di' il nome della categoria</span>
+    </div>
+  </div>
+</div>
+
+
+<!-- DIALOG RINOMINA -->
+<div class="dialog-overlay hidden" id="rename-dialog">
+  <div class="dialog-box">
+    <div class="dialog-title" id="dialog-title">Rinomina categoria</div>
+    <div class="dialog-sub" id="dialog-sub"></div>
+    <input class="dialog-input" type="text" id="dialog-input" placeholder="Nuovo nome...">
+    <div class="dialog-btns">
+      <button class="btn-cancel" onclick="closeRenameDialog()">Annulla</button>
+      <button class="btn-confirm" onclick="confirmRename()">Rinomina ✓</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getDatabase, ref, onValue, push, remove, set } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyADe1wT2As9JuccZuJ75C9R-vrW7Nm2coM",
+  authDomain: "scadenziario-famiglia.firebaseapp.com",
+  projectId: "scadenziario-famiglia",
+  storageBucket: "scadenziario-famiglia.firebasestorage.app",
+  messagingSenderId: "788875664077",
+  appId: "1:788875664077:web:aeba7b115d83118db1a784",
+  databaseURL: "https://scadenziario-famiglia-default-rtdb.europe-west1.firebasedatabase.app"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getDatabase(app);
+const prodRef = ref(db, 'prodotti');
+const catRef  = ref(db, 'categorie');
+const DEFAULT_CATS = ['Dolci','Latticini','Salumi','Conserve','Surgelati','Bevande','Frutta e verdura','Pasta','Caffè','Farmaci','Altro'];
+
+function setSyncState(state, label) {
+  document.getElementById('sync-dot').className = 'sync-dot ' + state;
+  document.getElementById('sync-label').textContent = label;
+}
+
+// --- PRODOTTI ---
+onValue(prodRef, snap => {
+  let prods = [];
+  const d = snap.val();
+  if (d) Object.entries(d).forEach(([k,v]) => prods.push({...v, fbKey:k}));
+  prods.sort((a,b)=>(a.date||'').localeCompare(b.date||''));
+  window._products = prods;
+  setSyncState('ok','sincronizzato');
+  document.getElementById('loading-screen').classList.add('hidden');
+  updateUI();
+  checkNotifications();
+}, err => {
+  setSyncState('error','errore connessione');
+  document.getElementById('loading-screen').classList.add('hidden');
+  showToast('Errore Firebase: ' + err.message);
+});
+
+// --- CATEGORIE ---
+onValue(catRef, snap => {
+  const d = snap.val();
+  if (d) {
+    window._categories = Object.entries(d).map(([k,v])=>({fbKey:k, name:v.name}));
+    window._categories.sort((a,b)=>a.name.localeCompare(b.name));
+  } else {
+    DEFAULT_CATS.forEach(name => push(catRef, {name}));
+    window._categories = DEFAULT_CATS.map(name=>({fbKey:null,name}));
+  }
+  renderCategorie();
+  updateUI();
+});
+
+// --- FB HELPERS ---
+window.fbSaveProduct = async data => {
+  setSyncState('syncing','salvataggio...');
+  try { await push(prodRef, data); setSyncState('ok','sincronizzato'); }
+  catch(e) { setSyncState('error','errore'); showToast('❌ ' + e.message); }
+};
+
+window.fbDeleteProduct = async fbKey => {
+  setSyncState('syncing','eliminazione...');
+  try { await remove(ref(db,'prodotti/'+fbKey)); setSyncState('ok','sincronizzato'); }
+  catch(e) { setSyncState('error','errore'); showToast('❌ ' + e.message); }
+};
+
+window.fbAddCategory = async name => {
+  try { await push(catRef,{name}); return true; }
+  catch(e) { showToast('❌ ' + e.message); return false; }
+};
+
+window.fbDeleteCategory = async (fbKey, catName) => {
+  try {
+    await remove(ref(db,'categorie/'+fbKey));
+    const toUpdate = (window._products||[]).filter(p=>p.cat===catName);
+    for (const p of toUpdate) await set(ref(db,'prodotti/'+p.fbKey+'/cat'),'');
+    if (toUpdate.length) showToast('✓ Rimossa da '+toUpdate.length+' prodotto/i');
+  } catch(e) { showToast('❌ ' + e.message); }
+};
+
+window.fbRenameCategory = async (fbKey, oldName, newName) => {
+  try {
+    await set(ref(db,'categorie/'+fbKey+'/name'), newName);
+    const toUpdate = (window._products||[]).filter(p=>p.cat===oldName);
+    for (const p of toUpdate) await set(ref(db,'prodotti/'+p.fbKey+'/cat'), newName);
+    showToast('✓ Rinominata. '+toUpdate.length+' prodotto/i aggiornati');
+  } catch(e) { showToast('❌ ' + e.message); }
+};
+
+setTimeout(()=>{ if(typeof setStep==='function') setStep(0); }, 800);
+</script>
+
+<script>
+window._products  = [];
+window._categories = [];
+
+const MESI   = {gennaio:1,febbraio:2,marzo:3,aprile:4,maggio:5,giugno:6,luglio:7,agosto:8,settembre:9,ottobre:10,novembre:11,dicembre:12};
+const NUMERI = {uno:1,due:2,tre:3,quattro:4,cinque:5,sei:6,sette:7,otto:8,nove:9,dieci:10,undici:11,dodici:12,tredici:13,quattordici:14,quindici:15,sedici:16,diciassette:17,diciotto:18,diciannove:19,venti:20,ventuno:21,ventidue:22,ventitre:23,'ventitré':23,ventiquattro:24,venticinque:25,ventisei:26,ventisette:27,ventotto:28,ventinove:29,trenta:30,trentuno:31};
+const STEPS  = [
+  {key:'name', question:'Come si chiama il prodotto?',  sub:'es. "Gocciole", "Latte intero"'},
+  {key:'brand',question:'Qual è il brand?',             sub:'es. "Pavesi", "Granarolo" — o premi Salta'},
+  {key:'cat',  question:'Che categoria è?',             sub:'es. "pasta", "latticini", "caffè"'},
+  {key:'date', question:'Quando scade?',                sub:'es. "quindici agosto duemilaventisei"'},
+];
+
+let currentStep = 0;
+let formData    = {name:'',brand:'',cat:'',date:''};
+let recognition = null;
+const synth     = window.speechSynthesis;
+
+// --- UTILS ---
+function capitalize(s){ return s ? s.charAt(0).toUpperCase()+s.slice(1) : s; }
+function esc(s){ return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function today(){ const d=new Date(); d.setHours(0,0,0,0); return d; }
+function parseDate(s){ const [y,m,d]=s.split('-').map(Number); return new Date(y,m-1,d); }
+function diffDays(date){ return Math.ceil((date-today())/86400000); }
+function formatDate(s){ if(!s) return '—'; const [y,m,d]=s.split('-'); return d+'/'+m+'/'+y; }
+function getStatus(s){ if(!s) return 'ok'; const d=diffDays(parseDate(s)); if(d<0) return 'expired'; if(d<=5) return 'warning'; return 'ok'; }
+
+function parseDateVoice(text){
+  const t=text.toLowerCase().replace(/[^\w\s]/g,'');
+  const words=t.split(/\s+/);
+  let day=null,month=null,year=null;
+  for(let w of words){
+    if(NUMERI[w]&&!day) day=NUMERI[w];
+    else if(MESI[w]) month=MESI[w];
+    else if(/^\d{4}$/.test(w)) year=parseInt(w);
+    else if(w.startsWith('duemila')){ const r=w.replace('duemila',''); year=2000+(NUMERI[r]||parseInt(r)||0); }
+  }
+  for(let d of (t.match(/\d+/g)||[])){ const n=parseInt(d); if(d.length===4) year=n; else if(n>=1&&n<=31&&!day) day=n; else if(n>=1&&n<=12&&!month) month=n; }
+  if(day&&month&&year) return year+'-'+String(month).padStart(2,'0')+'-'+String(day).padStart(2,'0');
+  return null;
+}
+
+function parseCatVoice(text){
+  const t=text.toLowerCase().trim();
+  const cats=(window._categories||[]).map(c=>c.name);
+  for(let c of cats){ if(t===c.toLowerCase()) return c; }
+  for(let c of cats){ if(t.includes(c.toLowerCase())||c.toLowerCase().includes(t)) return c; }
+  for(let c of cats){ if(t.includes(c.toLowerCase().split(' ')[0])) return c; }
+  return null;
+}
+
+// --- TTS ---
+function speak(text, onEnd){
+  if(!synth){ if(onEnd) onEnd(); return; }
+  synth.cancel();
+  const u=new SpeechSynthesisUtterance(text);
+  u.lang='it-IT'; u.rate=1.0;
+  u.onend=()=>{ if(onEnd) onEnd(); };
+  document.getElementById('g-mic').className='mic-circle speaking';
+  synth.speak(u);
+}
+
+// --- GUIDED INPUT ---
+function setStep(i){
+  currentStep=i;
+  document.querySelectorAll('.step-dot').forEach((d,idx)=>{
+    d.className='step-dot'+(idx<i?' done':idx===i?' active':'');
+  });
+  if(i>=STEPS.length){ showSummary(); return; }
+  const s=STEPS[i];
+  document.getElementById('g-question').textContent=s.question;
+  document.getElementById('g-sub').textContent=s.sub;
+  document.getElementById('g-status').textContent='';
+  const res=document.getElementById('g-result');
+  res.textContent='In attesa...'; res.className='g-result empty';
+  document.getElementById('g-next-btn').style.display='none';
+  document.getElementById('guided-ui').style.display='';
+  document.getElementById('summary-ui').style.display='none';
+  speak(s.question, ()=>{ document.getElementById('g-mic').className='mic-circle'; setTimeout(startListening,500); });
+}
+
+function handleMicClick(){
+  if(recognition){ recognition.stop(); return; }
+  if(synth&&synth.speaking){ synth.cancel(); setTimeout(startListening,300); return; }
+  startListening();
+}
+
+function startListening(){
+  const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+  if(!SR){ showToast('Microfono non supportato. Usa Chrome o Safari.'); return; }
+  recognition=new SR();
+  recognition.lang='it-IT'; recognition.interimResults=false; recognition.maxAlternatives=3;
+  document.getElementById('g-mic').className='mic-circle listening';
+  document.getElementById('g-status').textContent='Sto ascoltando...';
+  recognition.onresult=e=>{ const t=e.results[0][0].transcript; recognition=null; document.getElementById('g-mic').className='mic-circle'; processResult(t); };
+  recognition.onerror=()=>{ recognition=null; document.getElementById('g-mic').className='mic-circle'; document.getElementById('g-status').textContent='Non ho sentito — premi il microfono per riprovare'; };
+  recognition.onend=()=>{ recognition=null; document.getElementById('g-mic').className='mic-circle'; };
+  recognition.start();
+}
+
+function processResult(text){
+  const step=STEPS[currentStep];
+  let value='',display='';
+  if(step.key==='name'||step.key==='brand'){ value=text.trim(); display=value; }
+  else if(step.key==='cat'){ const c=parseCatVoice(text); if(c){value=c;display=c;} else{display='"'+text+'" — non riconosciuto, riprova o salta';} }
+  else if(step.key==='date'){ const d=parseDateVoice(text); if(d){value=d;display=formatDate(d);} else{display='"'+text+'" — non capito, riprova';} }
+  formData[step.key]=value;
+  const el=document.getElementById('g-result');
+  el.textContent=display||'Non riconosciuto';
+  el.className='g-result'+(value?'':' empty');
+  document.getElementById('g-status').textContent=value?'Ho capito!':'Prova di nuovo o salta';
+  if(value){ document.getElementById('g-next-btn').style.display=''; speak('Ho capito: '+display+'. Premi conferma per continuare.'); }
+}
+
+function confirmStep(){ setStep(currentStep+1); }
+function skipStep(){ formData[STEPS[currentStep].key]=''; setStep(currentStep+1); }
+function repeatStep(){ synth&&synth.cancel(); if(recognition) recognition.stop(); setTimeout(()=>setStep(currentStep),200); }
+
+function showSummary(){
+  document.getElementById('guided-ui').style.display='none';
+  document.getElementById('summary-ui').style.display='';
+  document.getElementById('s-name').textContent=formData.name||'—';
+  document.getElementById('s-brand').textContent=formData.brand||'—';
+  document.getElementById('s-cat').textContent=formData.cat||'—';
+  document.getElementById('s-date').textContent=formData.date?formatDate(formData.date):'—';
+  speak('Tutto fatto! Controlla il riepilogo e salva.');
+}
+
+function restartGuide(){ formData={name:'',brand:'',cat:'',date:''}; setStep(0); }
+
+function saveProduct(){
+  if(!formData.name){ showToast('Inserisci almeno il nome del prodotto'); return; }
+  window.fbSaveProduct({name:formData.name,brand:formData.brand||'',cat:formData.cat||'',date:formData.date||'',qty:1,ts:Date.now()});
+  speak('Prodotto salvato!');
+  showToast('✓ Salvato per tutta la famiglia!');
+  formData={name:'',brand:'',cat:'',date:''};
+  setTimeout(()=>setStep(0),1600);
+}
+
+function deleteProduct(fbKey){
+  if(confirm('Eliminare questo prodotto?')) window.fbDeleteProduct(fbKey);
+}
+
+// --- CATEGORIE ---
+function renderCategorie(){
+  const grid=document.getElementById('cat-grid');
+  const cats=window._categories||[];
+  grid.innerHTML='';
+  if(!cats.length){
+    const empty=document.createElement('div');
+    empty.style.cssText='color:#aaa;font-size:13px';
+    empty.textContent='Nessuna categoria';
+    grid.appendChild(empty);
+    return;
+  }
+  cats.forEach(function(c,i){
+    const chip=document.createElement('div');
+    chip.className='cat-chip';
+
+    const nome=document.createElement('span');
+    nome.textContent=c.name;
+    chip.appendChild(nome);
+
+    const btnR=document.createElement('button');
+    btnR.className='btn-rename';
+    btnR.textContent='Rinomina';
+    btnR.style.cssText='padding:5px 10px;border-radius:8px;border:1.5px solid #888;background:#fff;color:#222;font-size:13px;font-weight:600;cursor:pointer;margin-left:6px';
+    btnR.setAttribute('data-idx', i);
+    chip.appendChild(btnR);
+
+    const btnD=document.createElement('button');
+    btnD.className='btn-del';
+    btnD.textContent='X';
+    btnD.style.cssText='background:none;border:none;color:#aaa;font-size:18px;cursor:pointer;margin-left:4px;font-weight:bold';
+    btnD.setAttribute('data-idx', i);
+    chip.appendChild(btnD);
+
+    grid.appendChild(chip);
+  });
+
+  // Event delegation su grid
+  grid.onclick=function(e){
+    const btn=e.target.closest('button');
+    if(!btn) return;
+    const idx=parseInt(btn.getAttribute('data-idx'));
+    if(isNaN(idx)) return;
+    if(btn.classList.contains('btn-rename')) renameCat(idx);
+    if(btn.classList.contains('btn-del')) deleteCat(idx);
+  };
+}
+
+function renameCat(idx){
+  const c = (window._categories||[])[idx];
+  if(!c) return;
+  _renameKey = c.fbKey;
+  _renameOld = c.name;
+  document.getElementById('dialog-title').textContent = 'Rinomina categoria';
+  document.getElementById('dialog-sub').textContent = 'Vecchio nome: "' + c.name + '"';
+  const inp = document.getElementById('dialog-input');
+  inp.value = c.name;
+  document.getElementById('rename-dialog').classList.remove('hidden');
+  setTimeout(()=>inp.focus(), 100);
+}
+
+function deleteCat(idx){
+  const c = (window._categories||[])[idx];
+  if(!c){ showToast('Errore: categoria non trovata'); return; }
+  if(confirm('Eliminare la categoria "'+c.name+'"?'))
+    window.fbDeleteCategory(c.fbKey, c.name);
+}
+
+async function addCatFromInput(){
+  const input=document.getElementById('new-cat-input');
+  const name=capitalize(input.value.trim());
+  if(!name){ showToast('Inserisci un nome'); return; }
+  const exists=(window._categories||[]).some(c=>c.name.toLowerCase()===name.toLowerCase());
+  if(exists){ showToast('Categoria già presente'); return; }
+  const ok=await window.fbAddCategory(name);
+  if(ok){ input.value=''; showToast('✓ Categoria "'+name+'" aggiunta!'); }
+}
+
+let _renameKey = null;
+let _renameOld = null;
+
+function closeRenameDialog(){
+  document.getElementById('rename-dialog').classList.add('hidden');
+  _renameKey = null; _renameOld = null;
+}
+
+async function confirmRename(){
+  const newName = capitalize(document.getElementById('dialog-input').value.trim());
+  if(!newName || newName === _renameOld){ closeRenameDialog(); return; }
+  closeRenameDialog();
+  await window.fbRenameCategory(_renameKey, _renameOld, newName);
+}
+
+
+
+let catRecognition=null;
+function startCatVoice(){
+  const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+  if(!SR){ showToast('Microfono non supportato'); return; }
+  if(catRecognition){ catRecognition.stop(); return; }
+  catRecognition=new SR();
+  catRecognition.lang='it-IT'; catRecognition.interimResults=false;
+  const btn=document.getElementById('mic-cat-page');
+  const status=document.getElementById('cat-voice-status');
+  btn.classList.add('listening'); status.textContent='Sto ascoltando...';
+  catRecognition.onresult=e=>{ const t=capitalize(e.results[0][0].transcript.trim()); catRecognition=null; btn.classList.remove('listening'); document.getElementById('new-cat-input').value=t; status.textContent='Ho capito: "'+t+'" — premi + per aggiungere'; };
+  catRecognition.onerror=()=>{ catRecognition=null; btn.classList.remove('listening'); status.textContent='Non ho sentito, riprova'; };
+  catRecognition.onend=()=>{ catRecognition=null; btn.classList.remove('listening'); };
+  catRecognition.start();
+}
+
+// --- LISTE PRODOTTI ---
+function renderList(containerId, items){
+  const el=document.getElementById(containerId);
+  if(!items.length){ el.innerHTML='<div class="empty"><div class="empty-icon">📭</div>Nessun prodotto</div>'; return; }
+  el.innerHTML=items.map(p=>{
+    const st=getStatus(p.date);
+    const d=p.date?diffDays(parseDate(p.date)):null;
+    let dl=!p.date?'Nessuna data':st==='expired'?'Scaduto '+Math.abs(d)+' gg fa':st==='warning'?(d===0?'Scade oggi':'Scade in '+d+' gg'):formatDate(p.date);
+    return '<div class="product-card '+st+'"><div style="flex:1;min-width:0"><div class="prod-name">'+esc(p.name)+'</div><div class="prod-meta">'+([p.brand,p.cat].filter(Boolean).map(s=>esc(capitalize(s))).join(' · ')||'&nbsp;')+'</div></div><div style="display:flex;align-items:center;flex-shrink:0"><div class="prod-date '+st+'">'+dl+'</div><button class="del-btn" onclick="deleteProduct(\''+p.fbKey+'\')">×</button></div></div>';
+  }).join('');
+}
+
+function renderAll(){
+  const prods=window._products||[];
+  const q=document.getElementById('search-all').value.toLowerCase();
+  const f=q?prods.filter(p=>p.name.toLowerCase().includes(q)||(p.brand||'').toLowerCase().includes(q)||(p.cat||'').toLowerCase().includes(q)):prods;
+  renderList('list-all',[...f].sort((a,b)=>(a.date||'').localeCompare(b.date||'')));
+}
+
+function updateUI(){
+  const prods=window._products||[];
+  const exp=prods.filter(p=>getStatus(p.date)==='expired');
+  const warn=prods.filter(p=>getStatus(p.date)==='warning');
+  const ok=prods.filter(p=>getStatus(p.date)==='ok');
+  document.getElementById('stat-total').textContent=prods.length;
+  document.getElementById('stat-warn').textContent=warn.length;
+  document.getElementById('stat-exp').textContent=exp.length;
+  document.getElementById('stat-ok').textContent=ok.length;
+  document.getElementById('b-all').textContent=prods.length;
+  document.getElementById('b-warn').textContent=warn.length;
+  document.getElementById('b-exp').textContent=exp.length;
+  renderAll();
+  renderList('list-warn',[...warn].sort((a,b)=>(a.date||'').localeCompare(b.date||'')));
+  renderList('list-exp',[...exp].sort((a,b)=>(a.date||'').localeCompare(b.date||'')));
+}
+
+function switchTab(t){
+  synth&&synth.cancel();
+  document.querySelectorAll('.tab').forEach(el=>el.classList.remove('active'));
+  document.querySelectorAll('.section').forEach(el=>el.classList.remove('active'));
+  ['add','all','warn','exp','cat'].forEach((id,i)=>{
+    if(id===t){ document.querySelectorAll('.tab')[i].classList.add('active'); document.getElementById('sec-'+id).classList.add('active'); }
+  });
+  if(t==='all') renderAll();
+  if(t==='cat') renderCategorie();
+}
+
+function showToast(msg){ const el=document.getElementById('toast'); el.textContent=msg; el.classList.add('show'); setTimeout(()=>el.classList.remove('show'),2800); }
+
+function checkNotifications(){
+  const prods=window._products||[];
+  const exp=prods.filter(p=>getStatus(p.date)==='expired');
+  const warn=prods.filter(p=>getStatus(p.date)==='warning');
+  if(exp.length>0) showToast('⚠️ '+exp.length+' prodotto/i scaduto/i!');
+  else if(warn.length>0) showToast('🕐 '+warn.length+' prodotto/i in scadenza presto');
+}
+
+const isIOS=/iPad|iPhone|iPod/.test(navigator.userAgent);
+if(isIOS&&!window.navigator.standalone) document.getElementById('install-banner').style.display='flex';
+</script>
+</body>
+</html>
