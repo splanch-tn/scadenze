@@ -105,6 +105,20 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
 .cat-pick-btn{padding:7px 14px;border-radius:20px;border:1.5px solid #e0e0e0;background:#fff;color:#1a1a1a;font-size:13px;font-weight:500;cursor:pointer}
 .cat-pick-btn:active{background:#1a1a1a;color:#fff;border-color:#1a1a1a}
 .cat-pick-btn.selected{background:#1a1a1a;color:#fff;border-color:#1a1a1a}
+
+/* SUMMARY EDITABILE */
+.summary-row{cursor:pointer;transition:background 0.15s;border-radius:8px;padding:8px 6px}
+.summary-row:active{background:#f5f5f0}
+.summary-row .edit-hint{font-size:11px;color:#bbb;margin-left:6px}
+.edit-panel{display:none;background:#f5f5f0;border-radius:12px;padding:14px;margin-bottom:12px;border:1px solid #e8e8e0}
+.edit-panel.visible{display:block}
+.edit-panel-title{font-size:12px;color:#888;margin-bottom:8px;font-weight:500}
+.edit-panel input,.edit-panel select{width:100%;padding:9px 12px;border:1.5px solid #1a1a1a;border-radius:10px;font-size:15px;outline:none;background:#fff;margin-bottom:10px}
+.edit-panel .cat-picker{margin-bottom:10px}
+.edit-panel-btns{display:flex;gap:8px}
+.edit-panel-btns button{flex:1;padding:9px;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer}
+.edit-panel-btns .btn-cancel-edit{border:1px solid #e0e0e0;background:#fff;color:#1a1a1a}
+.edit-panel-btns .btn-save-edit{border:none;background:#1a1a1a;color:#fff}
 </style>
 </head>
 <body>
@@ -157,6 +171,10 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
         <div class="g-status" id="g-status"></div>
         <div class="cat-picker" id="cat-picker"></div>
         <div class="g-result empty" id="g-result">In attesa...</div>
+        <div id="g-edit-wrap" style="display:none;margin-bottom:14px">
+          <input type="text" id="g-edit-text" style="width:100%;padding:9px 12px;border:1.5px solid #1a1a1a;border-radius:10px;font-size:15px;outline:none;background:#fff">
+          <input type="date" id="g-edit-date" style="width:100%;padding:9px 12px;border:1.5px solid #1a1a1a;border-radius:10px;font-size:15px;outline:none;background:#fff;margin-top:6px;display:none">
+        </div>
         <div class="guide-btns">
           <button onclick="repeatStep()">↺ Ripeti</button>
           <button onclick="skipStep()">Salta →</button>
@@ -164,11 +182,34 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
         </div>
       </div>
       <div id="summary-ui" style="display:none">
-        <div class="summary-card">
-          <div class="summary-row"><span>Prodotto</span><span id="s-name">—</span></div>
-          <div class="summary-row"><span>Brand</span><span id="s-brand">—</span></div>
-          <div class="summary-row"><span>Categoria</span><span id="s-cat">—</span></div>
-          <div class="summary-row"><span>Scadenza</span><span id="s-date">—</span></div>
+        <div class="summary-card" id="summary-card">
+          <div class="summary-row" onclick="openEdit('name')">
+            <span>Prodotto</span>
+            <div style="display:flex;align-items:center"><span id="s-name">—</span><span class="edit-hint">✏️</span></div>
+          </div>
+          <div class="summary-row" onclick="openEdit('brand')">
+            <span>Brand</span>
+            <div style="display:flex;align-items:center"><span id="s-brand">—</span><span class="edit-hint">✏️</span></div>
+          </div>
+          <div class="summary-row" onclick="openEdit('cat')">
+            <span>Categoria</span>
+            <div style="display:flex;align-items:center"><span id="s-cat">—</span><span class="edit-hint">✏️</span></div>
+          </div>
+          <div class="summary-row" onclick="openEdit('date')">
+            <span>Scadenza</span>
+            <div style="display:flex;align-items:center"><span id="s-date">—</span><span class="edit-hint">✏️</span></div>
+          </div>
+        </div>
+        <!-- PANNELLO DI MODIFICA -->
+        <div class="edit-panel" id="edit-panel">
+          <div class="edit-panel-title" id="edit-panel-title">Modifica</div>
+          <input type="text" id="edit-text-input" style="display:none" placeholder="">
+          <input type="date" id="edit-date-input" style="display:none">
+          <div class="cat-picker" id="edit-cat-picker" style="display:none;flex-wrap:wrap;gap:8px;margin-bottom:10px"></div>
+          <div class="edit-panel-btns">
+            <button class="btn-cancel-edit" onclick="closeEdit()">Annulla</button>
+            <button class="btn-save-edit" onclick="saveEdit()">Salva ✓</button>
+          </div>
         </div>
         <div class="action-btns">
           <button class="btn-secondary" onclick="restartGuide()">↺ Ricomincia</button>
@@ -414,6 +455,9 @@ function setStep(i){
   const res=document.getElementById('g-result');
   res.textContent='In attesa...'; res.className='g-result empty';
   document.getElementById('g-next-btn').style.display='none';
+  document.getElementById('g-edit-wrap').style.display='none';
+  document.getElementById('g-edit-text').value='';
+  document.getElementById('g-edit-date').value='';
   document.getElementById('guided-ui').style.display='';
   document.getElementById('summary-ui').style.display='none';
   // Mostra picker categorie solo allo step categoria
@@ -454,11 +498,34 @@ function processResult(text){
   else if(step.key==='cat'){ const c=parseCatVoice(text); if(c){value=c;display=c;} else{display='"'+text+'" — non riconosciuto, riprova o salta';} }
   else if(step.key==='date'){ const d=parseDateVoice(text); if(d){value=d;display=formatDate(d);} else{display='"'+text+'" — non capito, riprova';} }
   formData[step.key]=value;
+
+  // Mostra risultato statico
   const el=document.getElementById('g-result');
   el.textContent=display||'Non riconosciuto';
   el.className='g-result'+(value?'':' empty');
-  document.getElementById('g-status').textContent=value?'Ho capito!':'Prova di nuovo o salta';
-  if(value){ document.getElementById('g-next-btn').style.display=''; speak('Ho capito: '+display+'. Premi conferma per continuare.'); }
+  document.getElementById('g-status').textContent=value?'Ho capito! Puoi correggere qui sotto o confermare.':'Prova di nuovo o salta';
+
+  // Mostra campo editabile per correggere
+  const wrap=document.getElementById('g-edit-wrap');
+  const textInp=document.getElementById('g-edit-text');
+  const dateInp=document.getElementById('g-edit-date');
+  textInp.style.display='none'; dateInp.style.display='none';
+
+  if(value){
+    wrap.style.display='';
+    if(step.key==='date'){
+      dateInp.style.display=''; dateInp.value=value;
+      dateInp.oninput=function(){ formData['date']=dateInp.value; document.getElementById('g-result').textContent=formatDate(dateInp.value); };
+    } else if(step.key==='name'||step.key==='brand'){
+      textInp.style.display=''; textInp.value=value;
+      textInp.oninput=function(){ formData[step.key]=textInp.value.trim(); document.getElementById('g-result').textContent=textInp.value; };
+    }
+    // Per cat il picker già permette di cambiare
+    document.getElementById('g-next-btn').style.display='';
+    speak('Ho capito: '+display+'. Correggi se serve, poi conferma.');
+  } else {
+    wrap.style.display='none';
+  }
 }
 
 function confirmStep(){ setStep(currentStep+1); }
@@ -476,6 +543,66 @@ function showSummary(){
 }
 
 function restartGuide(){ formData={name:'',brand:'',cat:'',date:''}; setStep(0); }
+
+let _editField = null;
+
+function openEdit(field){
+  _editField = field;
+  const panel = document.getElementById('edit-panel');
+  const textInput = document.getElementById('edit-text-input');
+  const dateInput = document.getElementById('edit-date-input');
+  const catPicker = document.getElementById('edit-cat-picker');
+  const title = document.getElementById('edit-panel-title');
+
+  // Hide all inputs first
+  textInput.style.display='none';
+  dateInput.style.display='none';
+  catPicker.style.display='none';
+
+  if(field==='name'){ title.textContent='Modifica prodotto'; textInput.placeholder='Nome prodotto'; textInput.value=formData.name||''; textInput.style.display=''; setTimeout(()=>textInput.focus(),100); }
+  else if(field==='brand'){ title.textContent='Modifica brand'; textInput.placeholder='Brand (es. Pavesi)'; textInput.value=formData.brand||''; textInput.style.display=''; setTimeout(()=>textInput.focus(),100); }
+  else if(field==='cat'){
+    title.textContent='Modifica categoria';
+    catPicker.style.display='flex';
+    catPicker.innerHTML='';
+    (window._categories||[]).forEach(function(c){
+      const btn=document.createElement('button');
+      btn.className='cat-pick-btn'+(formData.cat===c.name?' selected':'');
+      btn.textContent=c.name;
+      btn.style.cssText='padding:7px 14px;border-radius:20px;border:1.5px solid #e0e0e0;background:#fff;color:#1a1a1a;font-size:13px;font-weight:500;cursor:pointer;margin:2px';
+      if(formData.cat===c.name) btn.style.cssText+='background:#1a1a1a;color:#fff;border-color:#1a1a1a';
+      btn.onclick=function(){
+        catPicker.querySelectorAll('button').forEach(function(b){ b.style.cssText='padding:7px 14px;border-radius:20px;border:1.5px solid #e0e0e0;background:#fff;color:#1a1a1a;font-size:13px;font-weight:500;cursor:pointer;margin:2px'; });
+        btn.style.cssText='padding:7px 14px;border-radius:20px;border:1.5px solid #1a1a1a;background:#1a1a1a;color:#fff;font-size:13px;font-weight:500;cursor:pointer;margin:2px';
+        formData.cat=c.name;
+      };
+      catPicker.appendChild(btn);
+    });
+  }
+  else if(field==='date'){ title.textContent='Modifica scadenza'; dateInput.value=formData.date||''; dateInput.style.display=''; setTimeout(()=>dateInput.focus(),100); }
+
+  panel.classList.add('visible');
+}
+
+function closeEdit(){
+  document.getElementById('edit-panel').classList.remove('visible');
+  _editField=null;
+}
+
+function saveEdit(){
+  const textInput=document.getElementById('edit-text-input');
+  const dateInput=document.getElementById('edit-date-input');
+  if(_editField==='name'){ formData.name=capitalize(textInput.value.trim())||formData.name; }
+  else if(_editField==='brand'){ formData.brand=capitalize(textInput.value.trim()); }
+  else if(_editField==='cat'){ /* già aggiornato nel picker */ }
+  else if(_editField==='date'){ formData.date=dateInput.value||formData.date; }
+  closeEdit();
+  // Aggiorna riepilogo
+  document.getElementById('s-name').textContent=formData.name||'—';
+  document.getElementById('s-brand').textContent=formData.brand||'—';
+  document.getElementById('s-cat').textContent=formData.cat||'—';
+  document.getElementById('s-date').textContent=formData.date?formatDate(formData.date):'—';
+}
 
 function saveProduct(){
   if(!formData.name){ showToast('Inserisci almeno il nome del prodotto'); return; }
