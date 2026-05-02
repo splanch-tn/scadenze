@@ -98,6 +98,13 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
 .dialog-btns{display:flex;gap:10px}
 .dialog-btns .btn-cancel{flex:1;padding:11px;border-radius:12px;border:1px solid #e0e0e0;background:#fff;font-size:14px;cursor:pointer;font-weight:500}
 .dialog-btns .btn-confirm{flex:2;padding:11px;border-radius:12px;border:none;background:#1a1a1a;color:#fff;font-size:14px;font-weight:600;cursor:pointer}
+
+/* CATEGORY PICKER */
+.cat-picker{display:none;flex-wrap:wrap;gap:8px;justify-content:center;margin-bottom:14px}
+.cat-picker.visible{display:flex}
+.cat-pick-btn{padding:7px 14px;border-radius:20px;border:1.5px solid #e0e0e0;background:#fff;color:#1a1a1a;font-size:13px;font-weight:500;cursor:pointer}
+.cat-pick-btn:active{background:#1a1a1a;color:#fff;border-color:#1a1a1a}
+.cat-pick-btn.selected{background:#1a1a1a;color:#fff;border-color:#1a1a1a}
 </style>
 </head>
 <body>
@@ -148,6 +155,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
         <div class="g-sub" id="g-sub">Ti farò 4 domande in sequenza</div>
         <div class="mic-circle" id="g-mic" onclick="handleMicClick()">🎤</div>
         <div class="g-status" id="g-status"></div>
+        <div class="cat-picker" id="cat-picker"></div>
         <div class="g-result empty" id="g-result">In attesa...</div>
         <div class="guide-btns">
           <button onclick="repeatStep()">↺ Ripeti</button>
@@ -369,6 +377,30 @@ function speak(text, onEnd){
 }
 
 // --- GUIDED INPUT ---
+function renderCatPicker(){
+  const picker = document.getElementById('cat-picker');
+  const cats = window._categories || [];
+  picker.innerHTML = '';
+  cats.forEach(function(c){
+    const btn = document.createElement('button');
+    btn.className = 'cat-pick-btn';
+    btn.textContent = c.name;
+    btn.onclick = function(){
+      // Seleziona categoria con tap
+      document.querySelectorAll('.cat-pick-btn').forEach(function(b){ b.classList.remove('selected'); });
+      btn.classList.add('selected');
+      formData['cat'] = c.name;
+      const el = document.getElementById('g-result');
+      el.textContent = c.name;
+      el.className = 'g-result';
+      document.getElementById('g-status').textContent = 'Categoria selezionata!';
+      document.getElementById('g-next-btn').style.display = '';
+      if(synth) synth.cancel();
+    };
+    picker.appendChild(btn);
+  });
+}
+
 function setStep(i){
   currentStep=i;
   document.querySelectorAll('.step-dot').forEach((d,idx)=>{
@@ -384,6 +416,15 @@ function setStep(i){
   document.getElementById('g-next-btn').style.display='none';
   document.getElementById('guided-ui').style.display='';
   document.getElementById('summary-ui').style.display='none';
+  // Mostra picker categorie solo allo step categoria
+  const picker = document.getElementById('cat-picker');
+  if(s.key==='cat'){
+    renderCatPicker();
+    picker.classList.add('visible');
+  } else {
+    picker.classList.remove('visible');
+    picker.innerHTML='';
+  }
   speak(s.question, ()=>{ document.getElementById('g-mic').className='mic-circle'; setTimeout(startListening,500); });
 }
 
