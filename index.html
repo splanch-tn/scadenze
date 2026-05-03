@@ -499,32 +499,33 @@ function processResult(text){
   else if(step.key==='date'){ const d=parseDateVoice(text); if(d){value=d;display=formatDate(d);} else{display='"'+text+'" — non capito, riprova';} }
   formData[step.key]=value;
 
-  // Mostra risultato statico
   const el=document.getElementById('g-result');
   el.textContent=display||'Non riconosciuto';
   el.className='g-result'+(value?'':' empty');
-  document.getElementById('g-status').textContent=value?'Ho capito! Puoi correggere qui sotto o confermare.':'Prova di nuovo o salta';
+  document.getElementById('g-status').textContent=value?'Ho capito!':'Prova di nuovo o salta';
 
-  // Mostra campo editabile per correggere
+  // Campo editabile solo per nome, brand e data (NON per categoria)
   const wrap=document.getElementById('g-edit-wrap');
   const textInp=document.getElementById('g-edit-text');
   const dateInp=document.getElementById('g-edit-date');
   textInp.style.display='none'; dateInp.style.display='none';
 
-  if(value){
+  if(value && step.key!=='cat'){
     wrap.style.display='';
     if(step.key==='date'){
       dateInp.style.display=''; dateInp.value=value;
       dateInp.oninput=function(){ formData['date']=dateInp.value; document.getElementById('g-result').textContent=formatDate(dateInp.value); };
-    } else if(step.key==='name'||step.key==='brand'){
+    } else {
       textInp.style.display=''; textInp.value=value;
       textInp.oninput=function(){ formData[step.key]=textInp.value.trim(); document.getElementById('g-result').textContent=textInp.value; };
     }
-    // Per cat il picker già permette di cambiare
-    document.getElementById('g-next-btn').style.display='';
-    speak('Ho capito: '+display+'. Correggi se serve, poi conferma.');
   } else {
     wrap.style.display='none';
+  }
+
+  if(value){
+    document.getElementById('g-next-btn').style.display='';
+    speak('Ho capito: '+display+'. Premi conferma per continuare.');
   }
 }
 
