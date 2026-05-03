@@ -644,7 +644,7 @@ function renderCategorie(){
 
     const btnR=document.createElement('button');
     btnR.textContent='Rinomina';
-    btnR.style.cssText='padding:4px 9px;border-radius:7px;border:1.5px solid #999;background:#f5f5f5;color:#222;font-size:12px;font-weight:700;cursor:pointer';
+    btnR.style.cssText='padding:4px 9px;border-radius:7px;border:1.5px solid #999;background:#f5f5f5;color:#222;font-size:12px;font-weight:700;cursor:pointer;-webkit-appearance:none;display:inline-block';
     (function(idx){ btnR.addEventListener('click', function(){ renameCat(idx); }); })(i);
     chip.appendChild(btnR);
 
