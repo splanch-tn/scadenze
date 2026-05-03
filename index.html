@@ -631,18 +631,31 @@ function deleteProduct(fbKey){
 function renderCategorie(){
   const grid=document.getElementById('cat-grid');
   const cats=window._categories||[];
+  grid.innerHTML='';
   if(!cats.length){ grid.innerHTML='<div style="color:#aaa;font-size:13px">Nessuna categoria</div>'; return; }
-  // Costruisci HTML con indici numerici - massima compatibilità con tutti i browser
-  let html='';
   cats.forEach(function(c,i){
-    const name=(c.name||'').replace(/'/g,"&#39;").replace(/"/g,"&quot;");
-    html+='<div style="display:flex;align-items:center;gap:5px;background:#fff;border:1px solid #e8e8e0;border-radius:20px;padding:6px 10px;margin:3px">';
-    html+='<span style="font-size:13px;font-weight:500">'+name+'</span>';
-    html+='<button style="padding:4px 9px;border-radius:7px;border:1.5px solid #999;background:#f5f5f5;color:#222;font-size:12px;font-weight:700;cursor:pointer" onclick="renameCat('+i+')">Rinomina</button>';
-    html+='<button style="background:none;border:none;color:#bbb;font-size:18px;font-weight:bold;cursor:pointer;padding:0 3px;line-height:1" onclick="deleteCat('+i+')">×</button>';
-    html+='</div>';
+    const chip=document.createElement('div');
+    chip.style.cssText='display:flex;align-items:center;gap:5px;background:#fff;border:1px solid #e8e8e0;border-radius:20px;padding:6px 10px;margin:3px';
+
+    const nome=document.createElement('span');
+    nome.style.cssText='font-size:13px;font-weight:500';
+    nome.textContent=c.name;
+    chip.appendChild(nome);
+
+    const btnR=document.createElement('button');
+    btnR.textContent='Rinomina';
+    btnR.style.cssText='padding:4px 9px;border-radius:7px;border:1.5px solid #999;background:#f5f5f5;color:#222;font-size:12px;font-weight:700;cursor:pointer';
+    (function(idx){ btnR.addEventListener('click', function(){ renameCat(idx); }); })(i);
+    chip.appendChild(btnR);
+
+    const btnD=document.createElement('button');
+    btnD.textContent='×';
+    btnD.style.cssText='background:none;border:none;color:#bbb;font-size:18px;font-weight:bold;cursor:pointer;padding:0 3px;line-height:1';
+    (function(idx){ btnD.addEventListener('click', function(){ deleteCat(idx); }); })(i);
+    chip.appendChild(btnD);
+
+    grid.appendChild(chip);
   });
-  grid.innerHTML=html;
 }
 
 async function addCatFromGuide(){
