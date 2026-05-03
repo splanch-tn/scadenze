@@ -170,6 +170,12 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
         <div class="mic-circle" id="g-mic" onclick="handleMicClick()">🎤</div>
         <div class="g-status" id="g-status"></div>
         <div class="cat-picker" id="cat-picker"></div>
+        <div id="cat-new-wrap" style="display:none;margin-bottom:10px">
+          <div style="display:flex;gap:6px">
+            <input type="text" id="cat-new-input" placeholder="Nuova categoria..." style="flex:1;padding:8px 12px;border:1.5px solid #e0e0e0;border-radius:10px;font-size:14px;outline:none;background:#fff">
+            <button onclick="addCatFromGuide()" style="padding:8px 14px;border-radius:10px;border:none;background:#1a1a1a;color:#fff;font-size:14px;font-weight:600;cursor:pointer">+</button>
+          </div>
+        </div>
         <div class="g-result empty" id="g-result">In attesa...</div>
         <div id="g-edit-wrap" style="display:none;margin-bottom:14px">
           <input type="text" id="g-edit-text" style="width:100%;padding:9px 12px;border:1.5px solid #1a1a1a;border-radius:10px;font-size:15px;outline:none;background:#fff">
@@ -337,18 +343,18 @@ window.fbAddCategory = async name => {
 window.fbDeleteCategory = async (fbKey, catName) => {
   try {
     await remove(ref(db,'categorie/'+fbKey));
-    const toUpdate = (window._products||[]).filter(p=>p.cat===catName);
+    const toUpdate = (window._products||[]).filter(p=>(p.cat||'').toLowerCase()===catName.toLowerCase());
     for (const p of toUpdate) await set(ref(db,'prodotti/'+p.fbKey+'/cat'),'');
-    if (toUpdate.length) showToast('✓ Rimossa da '+toUpdate.length+' prodotto/i');
+    showToast(toUpdate.length ? '✓ Rimossa da '+toUpdate.length+' prodotto/i' : '✓ Categoria eliminata');
   } catch(e) { showToast('❌ ' + e.message); }
 };
 
 window.fbRenameCategory = async (fbKey, oldName, newName) => {
   try {
     await set(ref(db,'categorie/'+fbKey+'/name'), newName);
-    const toUpdate = (window._products||[]).filter(p=>p.cat===oldName);
+    const toUpdate = (window._products||[]).filter(p=>(p.cat||'').toLowerCase()===oldName.toLowerCase());
     for (const p of toUpdate) await set(ref(db,'prodotti/'+p.fbKey+'/cat'), newName);
-    showToast('✓ Rinominata. '+toUpdate.length+' prodotto/i aggiornati');
+    showToast('✓ Rinominata in "'+newName+'". '+toUpdate.length+' prodotto/i aggiornati');
   } catch(e) { showToast('❌ ' + e.message); }
 };
 
@@ -465,9 +471,12 @@ function setStep(i){
   if(s.key==='cat'){
     renderCatPicker();
     picker.classList.add('visible');
+    document.getElementById('cat-new-wrap').style.display='';
   } else {
     picker.classList.remove('visible');
     picker.innerHTML='';
+    document.getElementById('cat-new-wrap').style.display='none';
+    document.getElementById('cat-new-input').value='';
   }
   speak(s.question, ()=>{ document.getElementById('g-mic').className='mic-circle'; setTimeout(startListening,500); });
 }
@@ -664,6 +673,32 @@ function renderCategorie(){
     if(btn.classList.contains('btn-rename')) renameCat(idx);
     if(btn.classList.contains('btn-del')) deleteCat(idx);
   };
+}
+
+async function addCatFromGuide(){
+  const input = document.getElementById('cat-new-input');
+  const name = capitalize(input.value.trim());
+  if(!name){ return; }
+  const exists = (window._categories||[]).some(c=>c.name.toLowerCase()===name.toLowerCase());
+  if(exists){
+    // Seleziona quella esistente
+    formData['cat'] = name;
+    document.getElementById('g-result').textContent = name;
+    document.getElementById('g-result').className = 'g-result';
+    document.getElementById('g-next-btn').style.display='';
+    renderCatPicker();
+    return;
+  }
+  const ok = await window.fbAddCategory(name);
+  if(ok){
+    input.value='';
+    // Seleziona subito la nuova categoria
+    formData['cat'] = name;
+    document.getElementById('g-result').textContent = name;
+    document.getElementById('g-result').className = 'g-result';
+    document.getElementById('g-status').textContent = 'Categoria "'+name+'" aggiunta e selezionata!';
+    document.getElementById('g-next-btn').style.display='';
+  }
 }
 
 function renameCat(idx){
