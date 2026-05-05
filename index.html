@@ -119,6 +119,15 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
 .edit-panel-btns button{flex:1;padding:9px;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer}
 .edit-panel-btns .btn-cancel-edit{border:1px solid #e0e0e0;background:#fff;color:#1a1a1a}
 .edit-panel-btns .btn-save-edit{border:none;background:#1a1a1a;color:#fff}
+
+/* FILTRI */
+.filter-bar{display:flex;gap:6px;margin-bottom:8px;overflow-x:auto;padding-bottom:4px}
+.filter-bar::-webkit-scrollbar{display:none}
+.filter-chip{padding:5px 12px;border-radius:20px;border:1px solid #e0e0e0;background:#fff;color:#888;font-size:12px;font-weight:500;cursor:pointer;white-space:nowrap;flex-shrink:0}
+.filter-chip.active{background:#1a1a1a;color:#fff;border-color:#1a1a1a}
+.sort-bar{display:flex;gap:6px;margin-bottom:10px}
+.sort-btn{padding:5px 12px;border-radius:20px;border:1px solid #e0e0e0;background:#fff;color:#888;font-size:12px;font-weight:500;cursor:pointer;white-space:nowrap}
+.sort-btn.active{background:#f0f0f0;color:#1a1a1a;border-color:#aaa;font-weight:700}
 </style>
 </head>
 <body>
@@ -227,6 +236,13 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
 
   <div class="section" id="sec-all">
     <div class="search-wrap"><input type="text" id="search-all" placeholder="🔍 Cerca..." oninput="renderAll()"></div>
+    <div class="filter-bar" id="filter-bar"></div>
+    <div class="sort-bar">
+      <span style="font-size:12px;color:#888;line-height:2">Ordina:</span>
+      <button class="sort-btn active" id="sort-date" onclick="setSort('date')">📅 Scadenza</button>
+      <button class="sort-btn" id="sort-cat" onclick="setSort('cat')">🏷️ Categoria</button>
+      <button class="sort-btn" id="sort-name" onclick="setSort('name')">🔤 Nome</button>
+    </div>
     <div id="list-all"></div>
   </div>
   <div class="section" id="sec-warn"><div id="list-warn"></div></div>
@@ -319,6 +335,7 @@ onValue(catRef, snap => {
     window._categories = DEFAULT_CATS.map(name=>({fbKey:null,name}));
   }
   renderCategorie();
+  buildFilterBar();
   updateUI();
 });
 
@@ -759,11 +776,50 @@ function renderList(containerId, items){
   }).join('');
 }
 
+let _activeFilter = 'Tutti';
+let _activeSort = 'date';
+
+function buildFilterBar(){
+  const bar = document.getElementById('filter-bar');
+  if(!bar) return;
+  const cats = ['Tutti'].concat((window._categories||[]).map(c=>c.name));
+  bar.innerHTML = '';
+  cats.forEach(function(c){
+    const chip = document.createElement('button');
+    chip.className = 'filter-chip' + (c===_activeFilter?' active':'');
+    chip.textContent = c;
+    chip.addEventListener('click', function(){
+      _activeFilter = c;
+      buildFilterBar();
+      renderAll();
+    });
+    bar.appendChild(chip);
+  });
+}
+
+function setSort(s){
+  _activeSort = s;
+  document.querySelectorAll('.sort-btn').forEach(function(b){ b.classList.remove('active'); });
+  document.getElementById('sort-'+s).classList.add('active');
+  renderAll();
+}
+
 function renderAll(){
   const prods=window._products||[];
   const q=document.getElementById('search-all').value.toLowerCase();
-  const f=q?prods.filter(p=>p.name.toLowerCase().includes(q)||(p.brand||'').toLowerCase().includes(q)||(p.cat||'').toLowerCase().includes(q)):prods;
-  renderList('list-all',[...f].sort((a,b)=>(a.date||'').localeCompare(b.date||'')));
+  let f = prods;
+  // Filtro testo
+  if(q) f=f.filter(p=>p.name.toLowerCase().includes(q)||(p.brand||'').toLowerCase().includes(q)||(p.cat||'').toLowerCase().includes(q));
+  // Filtro categoria
+  if(_activeFilter && _activeFilter!=='Tutti') f=f.filter(p=>(p.cat||'').toLowerCase()===_activeFilter.toLowerCase());
+  // Ordinamento
+  f = [...f].sort(function(a,b){
+    if(_activeSort==='date') return (a.date||'').localeCompare(b.date||'');
+    if(_activeSort==='cat') return (a.cat||'').localeCompare(b.cat||'');
+    if(_activeSort==='name') return (a.name||'').localeCompare(b.name||'');
+    return 0;
+  });
+  renderList('list-all', f);
 }
 
 function updateUI(){
@@ -790,7 +846,7 @@ function switchTab(t){
   ['add','all','warn','exp','cat'].forEach((id,i)=>{
     if(id===t){ document.querySelectorAll('.tab')[i].classList.add('active'); document.getElementById('sec-'+id).classList.add('active'); }
   });
-  if(t==='all') renderAll();
+  if(t==='all'){ buildFilterBar(); renderAll(); }
   if(t==='cat') renderCategorie();
 }
 
