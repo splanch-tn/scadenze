@@ -1,0 +1,30 @@
+name: Notifiche Scadenze
+
+on:
+  schedule:
+    - cron: '0 7 * * *'  # Ogni giorno alle 7:00 UTC (9:00 ora italiana)
+  workflow_dispatch:       # Permette di eseguire manualmente
+
+jobs:
+  controlla-scadenze:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '20'
+
+      - name: Installa dipendenze
+        run: npm install axios
+
+      - name: Controlla scadenze e manda email
+        env:
+          FIREBASE_URL: ${{ secrets.FIREBASE_URL }}
+          EMAILJS_SERVICE_ID: ${{ secrets.EMAILJS_SERVICE_ID }}
+          EMAILJS_TEMPLATE_ID: ${{ secrets.EMAILJS_TEMPLATE_ID }}
+          EMAILJS_PUBLIC_KEY: ${{ secrets.EMAILJS_PUBLIC_KEY }}
+          EMAIL_DESTINATARIO: ${{ secrets.EMAIL_DESTINATARIO }}
+        run: node controlla-scadenze.js
