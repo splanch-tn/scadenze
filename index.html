@@ -59,7 +59,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
 .prod-meta{font-size:12px;color:#888;margin-top:3px}
 .prod-date{font-size:12px;font-weight:600;text-align:right}
 .prod-date.expired{color:#b91c1c}.prod-date.warning{color:#92400e}.prod-date.ok{color:#166534}
-.del-btn{background:none;border:none;color:#ccc;cursor:pointer;font-size:20px;padding:4px 4px 4px 10px;line-height:1}
+.del-btn{background:none;border:none;color:#ccc;cursor:pointer;font-size:20px;padding:4px 4px 4px 6px;line-height:1}
+.dup-btn{background:none;border:none;color:#aaa;cursor:pointer;font-size:18px;padding:4px 2px;line-height:1}
 .empty{text-align:center;padding:40px 20px;color:#aaa;font-size:14px}
 .empty-icon{font-size:40px;margin-bottom:10px}
 .search-wrap{margin-bottom:12px}
@@ -672,6 +673,28 @@ function saveProduct(){
   setTimeout(()=>setStep(0),1600);
 }
 
+function duplicateProduct(fbKey){
+  const p = (window._products||[]).find(p=>p.fbKey===fbKey);
+  if(!p) return;
+  // Precompila formData con i dati del prodotto
+  formData.name  = p.name  || '';
+  formData.brand = p.brand || '';
+  formData.cat   = p.cat   || '';
+  formData.date  = '';  // la scadenza va reinserita
+  formData.qty   = 1;
+  // Vai alla schermata di riepilogo direttamente
+  switchTab('add');
+  showSummary();
+  document.getElementById('s-name').textContent  = formData.name  || '—';
+  document.getElementById('s-brand').textContent = formData.brand || '—';
+  document.getElementById('s-cat').textContent   = formData.cat   || '—';
+  document.getElementById('s-date').textContent  = '⚠️ da inserire';
+  document.getElementById('s-qty').textContent   = formData.qty;
+  // Aggiorna dots
+  document.querySelectorAll('.step-dot').forEach((d,i)=>{ d.className='step-dot'+(i<4?' done':''); });
+  showToast('Prodotto copiato — inserisci la nuova scadenza');
+}
+
 function deleteProduct(fbKey){
   if(confirm('Eliminare questo prodotto?')) window.fbDeleteProduct(fbKey);
 }
@@ -808,7 +831,7 @@ function renderList(containerId, items){
     const qtyCtrl = qty > 1
       ? '<div class="qty-ctrl"><button class="qty-btn" onclick="window.fbUpdateQty(\''+p.fbKey+'\','+(qty-1)+')">−</button><span class="qty-num">'+qty+'</span><button class="qty-btn" onclick="window.fbUpdateQty(\''+p.fbKey+'\','+(qty+1)+')">+</button></div>'
       : '<button class="qty-btn" onclick="window.fbUpdateQty(\''+p.fbKey+'\',2)" title="Aumenta quantità">+</button>';
-    return '<div class="product-card '+st+'"><div style="flex:1;min-width:0"><div class="prod-name">'+esc(p.name)+'</div><div class="prod-meta">'+([p.brand,p.cat].filter(Boolean).map(s=>esc(capitalize(s))).join(' · ')||'&nbsp;')+'</div></div><div style="display:flex;align-items:center;gap:4px;flex-shrink:0"><div class="prod-date '+st+'">'+dl+'</div>'+qtyCtrl+'<button class="del-btn" onclick="deleteProduct(\''+p.fbKey+'\')">×</button></div></div>';
+    return '<div class="product-card '+st+'"><div style="flex:1;min-width:0"><div class="prod-name">'+esc(p.name)+'</div><div class="prod-meta">'+([p.brand,p.cat].filter(Boolean).map(s=>esc(capitalize(s))).join(' · ')||'&nbsp;')+'</div></div><div style="display:flex;align-items:center;gap:4px;flex-shrink:0"><div class="prod-date '+st+'">'+dl+'</div>'+qtyCtrl+'<button class="dup-btn" onclick="duplicateProduct(\''+p.fbKey+'')" title="Duplica">⎘</button><button class="del-btn" onclick="deleteProduct(\''+p.fbKey+'\')">×</button></div></div>';
   }).join('');
 }
 
