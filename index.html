@@ -833,8 +833,7 @@ function epVoice(field){
   _epRecognition.start();
 }
 
-function duplicateProduct(el){
-  const fbKey = typeof el === 'string' ? el : (el && el.getAttribute ? el.getAttribute('data-key') : el);
+function duplicateProduct(fbKey){
   const p = (window._products||[]).find(p=>p.fbKey===fbKey);
   if(!p) return;
   // Apre il pannello di modifica precompilato ma senza fbKey
@@ -867,8 +866,7 @@ function duplicateProduct(el){
   showToast('Modifica i campi e inserisci la nuova scadenza');
 }
 
-function deleteProduct(el){
-  const fbKey = typeof el === 'string' ? el : (el && el.getAttribute ? el.getAttribute('data-key') : el);
+function deleteProduct(fbKey){
   if(confirm('Eliminare questo prodotto?')) window.fbDeleteProduct(fbKey);
 }
 
@@ -995,31 +993,64 @@ function startCatVoice(){
 // --- LISTE PRODOTTI ---
 function renderList(containerId, items){
   const el=document.getElementById(containerId);
+  el.innerHTML='';
   if(!items.length){ el.innerHTML='<div class="empty"><div class="empty-icon">📭</div>Nessun prodotto</div>'; return; }
-  el.innerHTML=items.map(p=>{
+  items.forEach(function(p){
     const st=getStatus(p.date);
     const d=p.date?diffDays(parseDate(p.date)):null;
-    let dl=!p.date?'Nessuna data':st==='expired'?'Scaduto '+Math.abs(d)+' gg fa':st==='warning'?(d===0?'Scade oggi':'Scade in '+d+' gg'):formatDate(p.date);
-    const qty = p.qty||1;
-    const qtyCtrl = qty > 1
-      ? '<div class="qty-ctrl"><button class="qty-btn" onclick="window.fbUpdateQty(\''+p.fbKey+'\','+(qty-1)+')">−</button><span class="qty-num">'+qty+'</span><button class="qty-btn" onclick="window.fbUpdateQty(\''+p.fbKey+'\','+(qty+1)+')">+</button></div>'
-      : '<button class="qty-btn" onclick="window.fbUpdateQty(\''+p.fbKey+'\',2)" title="Aumenta quantità">+</button>';
-    const fk = p.fbKey;
-    const card = document.createElement('div');
-    card.className = 'product-card '+st;
-    card.innerHTML =
-      '<div style="flex:1;min-width:0;cursor:pointer" id="ep-open-'+fk+'"><div class="prod-name">'+esc(p.name)+'</div><div class="prod-meta">'+([p.brand,p.cat].filter(Boolean).map(s=>esc(capitalize(s))).join(' · ')||'&nbsp;')+'</div></div>'+
-      '<div style="display:flex;align-items:center;gap:4px;flex-shrink:0">'+
-        '<div class="prod-date '+st+'">'+dl+'</div>'+
-        qtyCtrl+
-        '<button class="dup-btn" data-key="'+fk+'" title="Duplica">⎘</button>'+
-        '<button class="del-btn" data-key="'+fk+'">×</button>'+
-      '</div>';
-    card.querySelector('#ep-open-'+fk).addEventListener('click', (function(k){ return function(){ openEditProd(k); }; })(fk));
-    card.querySelector('.dup-btn').addEventListener('click', (function(k){ return function(){ duplicateProduct(k); }; })(fk));
-    card.querySelector('.del-btn').addEventListener('click', (function(k){ return function(){ deleteProduct(k); }; })(fk));
-    return card.outerHTML;
-  }).join('');
+    const dl=!p.date?'Nessuna data':st==='expired'?'Scaduto '+Math.abs(d)+' gg fa':st==='warning'?(d===0?'Scade oggi':'Scade in '+d+' gg'):formatDate(p.date);
+    const qty=p.qty||1;
+
+    const card=document.createElement('div');
+    card.className='product-card '+st;
+
+    const left=document.createElement('div');
+    left.style.cssText='flex:1;min-width:0;cursor:pointer';
+    left.innerHTML='<div class="prod-name">'+esc(p.name)+'</div><div class="prod-meta">'+([p.brand,p.cat].filter(Boolean).map(s=>esc(capitalize(s))).join(' · ')||'&nbsp;')+'</div>';
+    left.addEventListener('click', function(){ openEditProd(p.fbKey); });
+
+    const right=document.createElement('div');
+    right.style.cssText='display:flex;align-items:center;gap:4px;flex-shrink:0';
+
+    const dateEl=document.createElement('div');
+    dateEl.className='prod-date '+st;
+    dateEl.textContent=dl;
+    right.appendChild(dateEl);
+
+    if(qty>1){
+      const qtyWrap=document.createElement('div');
+      qtyWrap.className='qty-ctrl';
+      const btnM=document.createElement('button');
+      btnM.className='qty-btn'; btnM.textContent='−';
+      btnM.addEventListener('click', function(e){ e.stopPropagation(); window.fbUpdateQty(p.fbKey, qty-1); });
+      const num=document.createElement('span');
+      num.className='qty-num'; num.textContent=qty;
+      const btnP=document.createElement('button');
+      btnP.className='qty-btn'; btnP.textContent='+';
+      btnP.addEventListener('click', function(e){ e.stopPropagation(); window.fbUpdateQty(p.fbKey, qty+1); });
+      qtyWrap.appendChild(btnM); qtyWrap.appendChild(num); qtyWrap.appendChild(btnP);
+      right.appendChild(qtyWrap);
+    } else {
+      const btnP=document.createElement('button');
+      btnP.className='qty-btn'; btnP.textContent='+'; btnP.title='Aumenta quantità';
+      btnP.addEventListener('click', function(e){ e.stopPropagation(); window.fbUpdateQty(p.fbKey, 2); });
+      right.appendChild(btnP);
+    }
+
+    const dupBtn=document.createElement('button');
+    dupBtn.className='dup-btn'; dupBtn.textContent='⎘'; dupBtn.title='Duplica';
+    dupBtn.addEventListener('click', function(e){ e.stopPropagation(); duplicateProduct(p.fbKey); });
+    right.appendChild(dupBtn);
+
+    const delBtn=document.createElement('button');
+    delBtn.className='del-btn'; delBtn.textContent='×';
+    delBtn.addEventListener('click', function(e){ e.stopPropagation(); deleteProduct(p.fbKey); });
+    right.appendChild(delBtn);
+
+    card.appendChild(left);
+    card.appendChild(right);
+    el.appendChild(card);
+  });
 }
 
 let _activeFilter = 'Tutti';
