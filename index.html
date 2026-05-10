@@ -673,7 +673,8 @@ function saveProduct(){
   setTimeout(()=>setStep(0),1600);
 }
 
-function duplicateProduct(fbKey){
+function duplicateProduct(el){
+  const fbKey = typeof el === 'string' ? el : el.getAttribute('data-key');
   const p = (window._products||[]).find(p=>p.fbKey===fbKey);
   if(!p) return;
   // Precompila formData con i dati del prodotto
@@ -695,7 +696,8 @@ function duplicateProduct(fbKey){
   showToast('Prodotto copiato — inserisci la nuova scadenza');
 }
 
-function deleteProduct(fbKey){
+function deleteProduct(el){
+  const fbKey = typeof el === 'string' ? el : el.getAttribute('data-key');
   if(confirm('Eliminare questo prodotto?')) window.fbDeleteProduct(fbKey);
 }
 
@@ -831,7 +833,8 @@ function renderList(containerId, items){
     const qtyCtrl = qty > 1
       ? '<div class="qty-ctrl"><button class="qty-btn" onclick="window.fbUpdateQty(\''+p.fbKey+'\','+(qty-1)+')">−</button><span class="qty-num">'+qty+'</span><button class="qty-btn" onclick="window.fbUpdateQty(\''+p.fbKey+'\','+(qty+1)+')">+</button></div>'
       : '<button class="qty-btn" onclick="window.fbUpdateQty(\''+p.fbKey+'\',2)" title="Aumenta quantità">+</button>';
-    return '<div class="product-card '+st+'"><div style="flex:1;min-width:0"><div class="prod-name">'+esc(p.name)+'</div><div class="prod-meta">'+([p.brand,p.cat].filter(Boolean).map(s=>esc(capitalize(s))).join(' · ')||'&nbsp;')+'</div></div><div style="display:flex;align-items:center;gap:4px;flex-shrink:0"><div class="prod-date '+st+'">'+dl+'</div>'+qtyCtrl+'<button class="dup-btn" onclick="duplicateProduct(\''+p.fbKey+'')" title="Duplica">⎘</button><button class="del-btn" onclick="deleteProduct(\''+p.fbKey+'\')">×</button></div></div>';
+    const fk = p.fbKey;
+    return '<div class="product-card '+st+'"><div style="flex:1;min-width:0"><div class="prod-name">'+esc(p.name)+'</div><div class="prod-meta">'+([p.brand,p.cat].filter(Boolean).map(s=>esc(capitalize(s))).join(' · ')||'&nbsp;')+'</div></div><div style="display:flex;align-items:center;gap:4px;flex-shrink:0"><div class="prod-date '+st+'">'+dl+'</div>'+qtyCtrl+'<button class="dup-btn" onclick="duplicateProduct(this)" data-key="'+fk+'" title="Duplica">⎘</button><button class="del-btn" onclick="deleteProduct(this)" data-key="'+fk+'">×</button></div></div>';
   }).join('');
 }
 
