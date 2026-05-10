@@ -128,6 +128,12 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
 .sort-bar{display:flex;gap:6px;margin-bottom:10px}
 .sort-btn{padding:5px 12px;border-radius:20px;border:1px solid #e0e0e0;background:#fff;color:#888;font-size:12px;font-weight:500;cursor:pointer;white-space:nowrap}
 .sort-btn.active{background:#f0f0f0;color:#1a1a1a;border-color:#aaa;font-weight:700}
+
+/* QUANTITA */
+.qty-ctrl{display:flex;align-items:center;gap:5px;flex-shrink:0}
+.qty-btn{width:26px;height:26px;border-radius:50%;border:1.5px solid #e0e0e0;background:#fff;color:#1a1a1a;font-size:16px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1;padding:0}
+.qty-btn:active{background:#1a1a1a;color:#fff}
+.qty-num{font-size:14px;font-weight:600;min-width:20px;text-align:center}
 </style>
 </head>
 <body>
@@ -213,6 +219,10 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
           <div class="summary-row" onclick="openEdit('date')">
             <span>Scadenza</span>
             <div style="display:flex;align-items:center"><span id="s-date">—</span><span class="edit-hint">✏️</span></div>
+          </div>
+          <div class="summary-row" onclick="openEdit('qty')">
+            <span>Quantità</span>
+            <div style="display:flex;align-items:center"><span id="s-qty">1</span><span class="edit-hint">✏️</span></div>
           </div>
         </div>
         <!-- PANNELLO DI MODIFICA -->
@@ -352,6 +362,15 @@ window.fbDeleteProduct = async fbKey => {
   catch(e) { setSyncState('error','errore'); showToast('❌ ' + e.message); }
 };
 
+window.fbUpdateQty = async (fbKey, newQty) => {
+  if(newQty <= 0){
+    if(confirm('Quantità a zero. Eliminare il prodotto?')) await window.fbDeleteProduct(fbKey);
+    return;
+  }
+  try { await set(ref(db,'prodotti/'+fbKey+'/qty'), newQty); }
+  catch(e) { showToast('❌ ' + e.message); }
+};
+
 window.fbAddCategory = async name => {
   try { await push(catRef,{name}); return true; }
   catch(e) { showToast('❌ ' + e.message); return false; }
@@ -389,10 +408,11 @@ const STEPS  = [
   {key:'brand',question:'Qual è il brand?',             sub:'es. "Pavesi", "Granarolo" — o premi Salta'},
   {key:'cat',  question:'Che categoria è?',             sub:'es. "pasta", "latticini", "caffè"'},
   {key:'date', question:'Quando scade?',                sub:'es. "quindici agosto duemilaventisei"'},
+  {key:'qty',  question:'Quante unità hai?',            sub:'es. "due", "tre" — o premi Salta per 1'},
 ];
 
 let currentStep = 0;
-let formData    = {name:'',brand:'',cat:'',date:''};
+let formData    = {name:'',brand:'',cat:'',date:'',qty:1};
 let recognition = null;
 const synth     = window.speechSynthesis;
 
@@ -521,6 +541,12 @@ function processResult(text){
   const step=STEPS[currentStep];
   let value='',display='';
   if(step.key==='name'||step.key==='brand'){ value=text.trim(); display=value; }
+  else if(step.key==='qty'){
+    const n=parseInt(text)||Object.entries(NUMERI).find(([k])=>text.toLowerCase().includes(k));
+    const num = typeof n==='number'?n:(n?n[1]:1);
+    if(num>0){ value=String(num); display=num+' unità'; formData.qty=num; }
+    else{ display='"'+text+'" — non capito, riprova o salta'; }
+  }
   else if(step.key==='cat'){ const c=parseCatVoice(text); if(c){value=c;display=c;} else{display='"'+text+'" — non riconosciuto, riprova o salta';} }
   else if(step.key==='date'){ const d=parseDateVoice(text); if(d){value=d;display=formatDate(d);} else{display='"'+text+'" — non capito, riprova';} }
   formData[step.key]=value;
@@ -566,10 +592,12 @@ function showSummary(){
   document.getElementById('s-brand').textContent=formData.brand||'—';
   document.getElementById('s-cat').textContent=formData.cat||'—';
   document.getElementById('s-date').textContent=formData.date?formatDate(formData.date):'—';
+  document.getElementById('s-qty').textContent=formData.qty||1;
+  document.getElementById('s-qty').textContent=formData.qty||1;
   speak('Tutto fatto! Controlla il riepilogo e salva.');
 }
 
-function restartGuide(){ formData={name:'',brand:'',cat:'',date:''}; setStep(0); }
+function restartGuide(){ formData={name:'',brand:'',cat:'',date:'',qty:1}; setStep(0); }
 
 let _editField = null;
 
@@ -607,6 +635,7 @@ function openEdit(field){
     });
   }
   else if(field==='date'){ title.textContent='Modifica scadenza'; dateInput.value=formData.date||''; dateInput.style.display=''; setTimeout(()=>dateInput.focus(),100); }
+  else if(field==='qty'){ title.textContent='Modifica quantità'; textInput.placeholder='es. 2, 3, 5...'; textInput.value=formData.qty||1; textInput.type='number'; textInput.style.display=''; setTimeout(()=>textInput.focus(),100); }
 
   panel.classList.add('visible');
 }
@@ -623,17 +652,20 @@ function saveEdit(){
   else if(_editField==='brand'){ formData.brand=capitalize(textInput.value.trim()); }
   else if(_editField==='cat'){ /* già aggiornato nel picker */ }
   else if(_editField==='date'){ formData.date=dateInput.value||formData.date; }
+  else if(_editField==='qty'){ formData.qty=parseInt(textInput.value)||1; textInput.type='text'; }
   closeEdit();
   // Aggiorna riepilogo
   document.getElementById('s-name').textContent=formData.name||'—';
   document.getElementById('s-brand').textContent=formData.brand||'—';
   document.getElementById('s-cat').textContent=formData.cat||'—';
   document.getElementById('s-date').textContent=formData.date?formatDate(formData.date):'—';
+  document.getElementById('s-qty').textContent=formData.qty||1;
+  document.getElementById('s-qty').textContent=formData.qty||1;
 }
 
 function saveProduct(){
   if(!formData.name){ showToast('Inserisci almeno il nome del prodotto'); return; }
-  window.fbSaveProduct({name:formData.name,brand:formData.brand||'',cat:formData.cat||'',date:formData.date||'',qty:1,ts:Date.now()});
+  window.fbSaveProduct({name:formData.name,brand:formData.brand||'',cat:formData.cat||'',date:formData.date||'',qty:formData.qty||1,ts:Date.now()});
   speak('Prodotto salvato!');
   showToast('✓ Salvato per tutta la famiglia!');
   formData={name:'',brand:'',cat:'',date:''};
@@ -772,7 +804,11 @@ function renderList(containerId, items){
     const st=getStatus(p.date);
     const d=p.date?diffDays(parseDate(p.date)):null;
     let dl=!p.date?'Nessuna data':st==='expired'?'Scaduto '+Math.abs(d)+' gg fa':st==='warning'?(d===0?'Scade oggi':'Scade in '+d+' gg'):formatDate(p.date);
-    return '<div class="product-card '+st+'"><div style="flex:1;min-width:0"><div class="prod-name">'+esc(p.name)+'</div><div class="prod-meta">'+([p.brand,p.cat].filter(Boolean).map(s=>esc(capitalize(s))).join(' · ')||'&nbsp;')+'</div></div><div style="display:flex;align-items:center;flex-shrink:0"><div class="prod-date '+st+'">'+dl+'</div><button class="del-btn" onclick="deleteProduct(\''+p.fbKey+'\')">×</button></div></div>';
+    const qty = p.qty||1;
+    const qtyCtrl = qty > 1
+      ? '<div class="qty-ctrl"><button class="qty-btn" onclick="window.fbUpdateQty(\''+p.fbKey+'\','+(qty-1)+')">−</button><span class="qty-num">'+qty+'</span><button class="qty-btn" onclick="window.fbUpdateQty(\''+p.fbKey+'\','+(qty+1)+')">+</button></div>'
+      : '<button class="qty-btn" onclick="window.fbUpdateQty(\''+p.fbKey+'\',2)" title="Aumenta quantità">+</button>';
+    return '<div class="product-card '+st+'"><div style="flex:1;min-width:0"><div class="prod-name">'+esc(p.name)+'</div><div class="prod-meta">'+([p.brand,p.cat].filter(Boolean).map(s=>esc(capitalize(s))).join(' · ')||'&nbsp;')+'</div></div><div style="display:flex;align-items:center;gap:4px;flex-shrink:0"><div class="prod-date '+st+'">'+dl+'</div>'+qtyCtrl+'<button class="del-btn" onclick="deleteProduct(\''+p.fbKey+'\')">×</button></div></div>';
   }).join('');
 }
 
