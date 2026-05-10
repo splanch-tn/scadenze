@@ -135,6 +135,26 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
 .qty-btn{width:26px;height:26px;border-radius:50%;border:1.5px solid #e0e0e0;background:#fff;color:#1a1a1a;font-size:16px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1;padding:0}
 .qty-btn:active{background:#1a1a1a;color:#fff}
 .qty-num{font-size:14px;font-weight:600;min-width:20px;text-align:center}
+
+/* MODIFICA PRODOTTO */
+.edit-prod-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:3000;display:flex;align-items:flex-end;justify-content:center}
+.edit-prod-overlay.hidden{display:none}
+.edit-prod-panel{background:#fff;border-radius:20px 20px 0 0;padding:20px 16px 40px;width:100%;max-width:480px;max-height:90vh;overflow-y:auto}
+.edit-prod-title{font-size:16px;font-weight:600;margin-bottom:16px;display:flex;justify-content:space-between;align-items:center}
+.edit-prod-title button{background:none;border:none;font-size:22px;cursor:pointer;color:#aaa}
+.edit-field{margin-bottom:12px}
+.edit-field label{display:block;font-size:12px;color:#888;margin-bottom:4px;font-weight:500}
+.edit-field-row{display:flex;gap:6px}
+.edit-field-row input,.edit-field-row select{flex:1;padding:9px 12px;border:1.5px solid #e0e0e0;border-radius:10px;font-size:14px;outline:none;background:#fff}
+.edit-field-row input:focus{border-color:#1a1a1a}
+.edit-mic{padding:8px 10px;border-radius:10px;border:1px solid #e0e0e0;background:#f5f5f0;font-size:16px;cursor:pointer;flex-shrink:0}
+.edit-mic.listening{background:#fee2e2;border-color:#fca5a5}
+.edit-cat-grid{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+.edit-cat-btn{padding:5px 12px;border-radius:20px;border:1.5px solid #e0e0e0;background:#fff;color:#888;font-size:12px;font-weight:500;cursor:pointer}
+.edit-cat-btn.selected{background:#1a1a1a;color:#fff;border-color:#1a1a1a}
+.edit-prod-btns{display:flex;gap:8px;margin-top:16px}
+.edit-prod-btns .btn-cancel{flex:1;padding:11px;border-radius:12px;border:1px solid #e0e0e0;background:#fff;font-size:14px;font-weight:500;cursor:pointer}
+.edit-prod-btns .btn-save{flex:2;padding:11px;border-radius:12px;border:none;background:#1a1a1a;color:#fff;font-size:14px;font-weight:600;cursor:pointer}
 </style>
 </head>
 <body>
@@ -291,6 +311,52 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
   </div>
 </div>
 
+
+<!-- MODIFICA PRODOTTO -->
+<div class="edit-prod-overlay hidden" id="edit-prod-overlay">
+  <div class="edit-prod-panel">
+    <div class="edit-prod-title">
+      <span>Modifica prodotto</span>
+      <button onclick="closeEditProd()">×</button>
+    </div>
+    <div class="edit-field">
+      <label>Nome prodotto</label>
+      <div class="edit-field-row">
+        <input type="text" id="ep-name" placeholder="Nome prodotto">
+        <button class="edit-mic" id="ep-mic-name" onclick="epVoice('name')">🎤</button>
+      </div>
+    </div>
+    <div class="edit-field">
+      <label>Brand</label>
+      <div class="edit-field-row">
+        <input type="text" id="ep-brand" placeholder="Brand">
+        <button class="edit-mic" id="ep-mic-brand" onclick="epVoice('brand')">🎤</button>
+      </div>
+    </div>
+    <div class="edit-field">
+      <label>Categoria</label>
+      <div class="edit-cat-grid" id="ep-cat-grid"></div>
+    </div>
+    <div class="edit-field">
+      <label>Scadenza</label>
+      <div class="edit-field-row">
+        <input type="date" id="ep-date">
+        <button class="edit-mic" id="ep-mic-date" onclick="epVoice('date')">🎤</button>
+      </div>
+    </div>
+    <div class="edit-field">
+      <label>Quantità</label>
+      <div class="edit-field-row">
+        <input type="number" id="ep-qty" min="1" value="1" style="max-width:80px">
+      </div>
+    </div>
+    <div class="edit-prod-btns">
+      <button class="btn-cancel" onclick="closeEditProd()">Annulla</button>
+      <button class="btn-save" onclick="saveEditProd()">Salva ✓</button>
+    </div>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <script type="module">
@@ -361,6 +427,17 @@ window.fbDeleteProduct = async fbKey => {
   setSyncState('syncing','eliminazione...');
   try { await remove(ref(db,'prodotti/'+fbKey)); setSyncState('ok','sincronizzato'); }
   catch(e) { setSyncState('error','errore'); showToast('❌ ' + e.message); }
+};
+
+window.fbUpdateProduct = async (fbKey, data) => {
+  setSyncState('syncing','salvataggio...');
+  try {
+    for (const [k,v] of Object.entries(data)) {
+      await set(ref(db,'prodotti/'+fbKey+'/'+k), v);
+    }
+    setSyncState('ok','sincronizzato');
+    showToast('✓ Prodotto aggiornato!');
+  } catch(e) { setSyncState('error','errore'); showToast('❌ '+e.message); }
 };
 
 window.fbUpdateQty = async (fbKey, newQty) => {
@@ -673,31 +750,125 @@ function saveProduct(){
   setTimeout(()=>setStep(0),1600);
 }
 
-function duplicateProduct(el){
-  const fbKey = typeof el === 'string' ? el : el.getAttribute('data-key');
+let _editProdKey = null;
+let _epRecognition = null;
+
+function openEditProd(fbKey){
   const p = (window._products||[]).find(p=>p.fbKey===fbKey);
   if(!p) return;
-  // Precompila formData con i dati del prodotto
-  formData.name  = p.name  || '';
-  formData.brand = p.brand || '';
-  formData.cat   = p.cat   || '';
-  formData.date  = '';  // la scadenza va reinserita
-  formData.qty   = 1;
-  // Vai alla schermata di riepilogo direttamente
-  switchTab('add');
-  showSummary();
-  document.getElementById('s-name').textContent  = formData.name  || '—';
-  document.getElementById('s-brand').textContent = formData.brand || '—';
-  document.getElementById('s-cat').textContent   = formData.cat   || '—';
-  document.getElementById('s-date').textContent  = '⚠️ da inserire';
-  document.getElementById('s-qty').textContent   = formData.qty;
-  // Aggiorna dots
-  document.querySelectorAll('.step-dot').forEach((d,i)=>{ d.className='step-dot'+(i<4?' done':''); });
-  showToast('Prodotto copiato — inserisci la nuova scadenza');
+  _editProdKey = fbKey;
+  document.getElementById('ep-name').value  = p.name  || '';
+  document.getElementById('ep-brand').value = p.brand || '';
+  document.getElementById('ep-date').value  = p.date  || '';
+  document.getElementById('ep-qty').value   = p.qty   || 1;
+  // Categorie
+  const grid = document.getElementById('ep-cat-grid');
+  grid.innerHTML = '';
+  (window._categories||[]).forEach(function(c){
+    const btn = document.createElement('button');
+    btn.className = 'edit-cat-btn' + (p.cat===c.name?' selected':'');
+    btn.textContent = c.name;
+    btn.style.cssText = p.cat===c.name ? 'padding:5px 12px;border-radius:20px;border:1.5px solid #1a1a1a;background:#1a1a1a;color:#fff;font-size:12px;font-weight:500;cursor:pointer' : 'padding:5px 12px;border-radius:20px;border:1.5px solid #e0e0e0;background:#fff;color:#888;font-size:12px;font-weight:500;cursor:pointer';
+    btn.addEventListener('click', function(){
+      grid.querySelectorAll('button').forEach(function(b){ b.className='edit-cat-btn'; b.style.cssText='padding:5px 12px;border-radius:20px;border:1.5px solid #e0e0e0;background:#fff;color:#888;font-size:12px;font-weight:500;cursor:pointer'; });
+      btn.style.cssText='padding:5px 12px;border-radius:20px;border:1.5px solid #1a1a1a;background:#1a1a1a;color:#fff;font-size:12px;font-weight:500;cursor:pointer';
+      btn.className='edit-cat-btn selected';
+    });
+    grid.appendChild(btn);
+  });
+  document.getElementById('edit-prod-overlay').classList.remove('hidden');
+}
+
+function closeEditProd(){
+  document.getElementById('edit-prod-overlay').classList.add('hidden');
+  if(_epRecognition){ _epRecognition.stop(); _epRecognition=null; }
+  _editProdKey = null;
+}
+
+function saveEditProd(){
+  if(!_editProdKey) return;
+  const selCat = document.querySelector('#ep-cat-grid .edit-cat-btn.selected');
+  const data = {
+    name:  capitalize(document.getElementById('ep-name').value.trim()),
+    brand: capitalize(document.getElementById('ep-brand').value.trim()),
+    cat:   selCat ? selCat.textContent : '',
+    date:  document.getElementById('ep-date').value,
+    qty:   parseInt(document.getElementById('ep-qty').value)||1,
+  };
+  if(!data.name){ showToast('Inserisci il nome'); return; }
+  if(_editProdKey === '__new__'){
+    // Duplica: salva come nuovo prodotto
+    data.ts = Date.now();
+    window.fbSaveProduct(data);
+    showToast('✓ Prodotto duplicato e salvato!');
+  } else {
+    window.fbUpdateProduct(_editProdKey, data);
+  }
+  // Ripristina titolo
+  document.querySelector('.edit-prod-title span').textContent = 'Modifica prodotto';
+  closeEditProd();
+}
+
+function epVoice(field){
+  const SR = window.SpeechRecognition||window.webkitSpeechRecognition;
+  if(!SR){ showToast('Microfono non supportato'); return; }
+  if(_epRecognition){ _epRecognition.stop(); return; }
+  _epRecognition = new SR();
+  _epRecognition.lang='it-IT'; _epRecognition.interimResults=false;
+  const btn = document.getElementById('ep-mic-'+field);
+  if(btn) btn.classList.add('listening');
+  _epRecognition.onresult = function(e){
+    const text = e.results[0][0].transcript.trim();
+    _epRecognition=null; if(btn) btn.classList.remove('listening');
+    if(field==='name') document.getElementById('ep-name').value=capitalize(text);
+    else if(field==='brand') document.getElementById('ep-brand').value=capitalize(text);
+    else if(field==='date'){
+      const d=parseDateVoice(text);
+      if(d){ document.getElementById('ep-date').value=d; showToast('Data: '+formatDate(d)); }
+      else showToast('Non capito: "'+text+'"');
+    }
+  };
+  _epRecognition.onerror=function(){ _epRecognition=null; if(btn) btn.classList.remove('listening'); };
+  _epRecognition.onend=function(){ _epRecognition=null; if(btn) btn.classList.remove('listening'); };
+  _epRecognition.start();
+}
+
+function duplicateProduct(el){
+  const fbKey = typeof el === 'string' ? el : (el && el.getAttribute ? el.getAttribute('data-key') : el);
+  const p = (window._products||[]).find(p=>p.fbKey===fbKey);
+  if(!p) return;
+  // Apre il pannello di modifica precompilato ma senza fbKey
+  // così salverà un nuovo prodotto invece di modificare quello esistente
+  _editProdKey = '__new__';
+  document.getElementById('ep-name').value  = p.name  || '';
+  document.getElementById('ep-brand').value = p.brand || '';
+  document.getElementById('ep-date').value  = '';
+  document.getElementById('ep-qty').value   = 1;
+  // Categorie
+  const grid = document.getElementById('ep-cat-grid');
+  grid.innerHTML = '';
+  (window._categories||[]).forEach(function(c){
+    const btn = document.createElement('button');
+    btn.className = 'edit-cat-btn' + (p.cat===c.name?' selected':'');
+    btn.style.cssText = p.cat===c.name
+      ? 'padding:5px 12px;border-radius:20px;border:1.5px solid #1a1a1a;background:#1a1a1a;color:#fff;font-size:12px;font-weight:500;cursor:pointer'
+      : 'padding:5px 12px;border-radius:20px;border:1.5px solid #e0e0e0;background:#fff;color:#888;font-size:12px;font-weight:500;cursor:pointer';
+    btn.textContent = c.name;
+    btn.addEventListener('click', function(){
+      grid.querySelectorAll('button').forEach(function(b){ b.className='edit-cat-btn'; b.style.cssText='padding:5px 12px;border-radius:20px;border:1.5px solid #e0e0e0;background:#fff;color:#888;font-size:12px;font-weight:500;cursor:pointer'; });
+      btn.style.cssText='padding:5px 12px;border-radius:20px;border:1.5px solid #1a1a1a;background:#1a1a1a;color:#fff;font-size:12px;font-weight:500;cursor:pointer';
+      btn.className='edit-cat-btn selected';
+    });
+    grid.appendChild(btn);
+  });
+  // Cambia titolo pannello
+  document.querySelector('.edit-prod-title span').textContent = 'Duplica prodotto';
+  document.getElementById('edit-prod-overlay').classList.remove('hidden');
+  showToast('Modifica i campi e inserisci la nuova scadenza');
 }
 
 function deleteProduct(el){
-  const fbKey = typeof el === 'string' ? el : el.getAttribute('data-key');
+  const fbKey = typeof el === 'string' ? el : (el && el.getAttribute ? el.getAttribute('data-key') : el);
   if(confirm('Eliminare questo prodotto?')) window.fbDeleteProduct(fbKey);
 }
 
@@ -834,7 +1005,20 @@ function renderList(containerId, items){
       ? '<div class="qty-ctrl"><button class="qty-btn" onclick="window.fbUpdateQty(\''+p.fbKey+'\','+(qty-1)+')">−</button><span class="qty-num">'+qty+'</span><button class="qty-btn" onclick="window.fbUpdateQty(\''+p.fbKey+'\','+(qty+1)+')">+</button></div>'
       : '<button class="qty-btn" onclick="window.fbUpdateQty(\''+p.fbKey+'\',2)" title="Aumenta quantità">+</button>';
     const fk = p.fbKey;
-    return '<div class="product-card '+st+'"><div style="flex:1;min-width:0"><div class="prod-name">'+esc(p.name)+'</div><div class="prod-meta">'+([p.brand,p.cat].filter(Boolean).map(s=>esc(capitalize(s))).join(' · ')||'&nbsp;')+'</div></div><div style="display:flex;align-items:center;gap:4px;flex-shrink:0"><div class="prod-date '+st+'">'+dl+'</div>'+qtyCtrl+'<button class="dup-btn" onclick="duplicateProduct(this)" data-key="'+fk+'" title="Duplica">⎘</button><button class="del-btn" onclick="deleteProduct(this)" data-key="'+fk+'">×</button></div></div>';
+    const card = document.createElement('div');
+    card.className = 'product-card '+st;
+    card.innerHTML =
+      '<div style="flex:1;min-width:0;cursor:pointer" id="ep-open-'+fk+'"><div class="prod-name">'+esc(p.name)+'</div><div class="prod-meta">'+([p.brand,p.cat].filter(Boolean).map(s=>esc(capitalize(s))).join(' · ')||'&nbsp;')+'</div></div>'+
+      '<div style="display:flex;align-items:center;gap:4px;flex-shrink:0">'+
+        '<div class="prod-date '+st+'">'+dl+'</div>'+
+        qtyCtrl+
+        '<button class="dup-btn" data-key="'+fk+'" title="Duplica">⎘</button>'+
+        '<button class="del-btn" data-key="'+fk+'">×</button>'+
+      '</div>';
+    card.querySelector('#ep-open-'+fk).addEventListener('click', (function(k){ return function(){ openEditProd(k); }; })(fk));
+    card.querySelector('.dup-btn').addEventListener('click', (function(k){ return function(){ duplicateProduct(k); }; })(fk));
+    card.querySelector('.del-btn').addEventListener('click', (function(k){ return function(){ deleteProduct(k); }; })(fk));
+    return card.outerHTML;
   }).join('');
 }
 
